@@ -1,11 +1,16 @@
-package com.minerva.minervacore;
+package com.minerva.core;
 
-import com.minerva.minervatools.DateTimeTools;
+import com.minerva.tools.DateTimeTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileUrlResource;
+import org.springframework.util.MimeTypeUtils;
+
+import java.net.MalformedURLException;
 
 public class ConversationManager {
     private static ConversationManager single_instance = null;
@@ -43,5 +48,23 @@ public class ConversationManager {
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();
+    }
+
+    public static String seekImageOpinion(String pathToFile, String request) throws MalformedURLException {
+        if (request == null){
+            request = "Explain what do you see on this picture?";
+        }
+
+        var pathToResource = new FileUrlResource(pathToFile);
+
+        String finalRequest = request;
+        String response = aiChatClient.prompt()
+                .user(u -> u.text(finalRequest)
+                        .media(MimeTypeUtils.IMAGE_JPEG, pathToResource))
+                .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
+                .call()
+                .content();
+        return  response;
+
     }
 }

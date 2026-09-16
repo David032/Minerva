@@ -1,0 +1,11 @@
+{
+  "default": {
+    "backend": "cpu",
+    "audio-backend": "gpu",
+    "vision-backend": "gpu"
+  },
+  "models": {
+    "gemma4-e2b": {
+    }
+  }
+}

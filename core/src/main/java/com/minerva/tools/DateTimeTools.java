@@ -1,4 +1,4 @@
-package com.minerva.minervatools;
+package com.minerva.tools;
 
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.context.i18n.LocaleContextHolder;

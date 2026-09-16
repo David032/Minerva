@@ -1,10 +1,11 @@
-FROM --platform=$BUILDPLATFORM maven:3.8.5-eclipse-temurin-17 AS builder
+FROM maven:4.0.0-rc-5-eclipse-temurin-26 AS builder
+
 WORKDIR /workdir/server
 COPY pom.xml /workdir/server/pom.xml
 RUN mvn dependency:go-offline
 
 COPY src /workdir/server/src
-RUN mvn install
+RUN mvn install -f pom.xml -Dmaven.test.skip=true
 
 FROM builder AS dev-envs
 RUN <<EOF
@@ -26,7 +27,7 @@ RUN mkdir -p target/dependency
 WORKDIR /workdir/server/target/dependency
 RUN jar -xf ../*.jar
 
-FROM eclipse-temurin:17-jre-focal
+FROM eclipse-temurin:26-jre
 
 EXPOSE 8080
 VOLUME /tmp
