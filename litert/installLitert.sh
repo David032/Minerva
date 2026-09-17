@@ -21,11 +21,11 @@ else
 fi
 
 # Copy config.json to ~/.litert-lm/config.json
-CONFIG_DIR="$HOME/.litert-lm"
-if [ ! -d "$CONFIG_DIR" ]; then
-    mkdir -p "$CONFIG_DIR"
-fi
-cp "config.json" "$CONFIG_DIR/config.json"
+#CONFIG_DIR="$HOME/.litert-lm"
+#if [ ! -d "$CONFIG_DIR" ]; then
+#    mkdir -p "$CONFIG_DIR"
+#fi
+#cp "config.json" "$CONFIG_DIR/config.json"
 
 # Download the e2b model
 litert-lm import --from-huggingface-repo litert-community/gemma-4-E2B-it-litert-lm gemma-4-E2B-it.litertlm gemma4-e2b
