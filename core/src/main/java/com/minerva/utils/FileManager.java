@@ -2,12 +2,11 @@ package com.minerva.utils;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
-import static java.lang.IO.print;
 
 public class FileManager {
     private static FileManager single_instance = null;
@@ -25,15 +24,21 @@ public class FileManager {
 
     public void CreateDirectories() throws IOException {
         String userHome = System.getProperty("user.home");
-        Path path = Paths.get(userHome, "MinervaOS","uploads");
+        Path MinervaPath = Paths.get(userHome, "MinervaOS");
+        Path uploadPath = Paths.get(userHome, "MinervaOS","uploads");
+        Path skillsPath = Paths.get(userHome, "MinervaOS","skills");
 
         try {
-            Files.createDirectories(path);
-            System.out.println("Directory successfully verified/created at: " + path.toAbsolutePath());
+            Files.createDirectories(MinervaPath);
+            Files.createDirectories(uploadPath);
+            Files.createDirectories(skillsPath);
+            System.out.println("Directories successfully verified/created at: " + MinervaPath.toAbsolutePath());
         } catch (IOException e) {
             System.err.println("Failed to create directory: " + e.getMessage());
         }
-        System.setProperty("app.dir.uploads", path.toAbsolutePath().toString());
+        System.setProperty("app.dir", MinervaPath.toAbsolutePath().toString());
+        System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
+        System.setProperty("app.dir.skills", skillsPath.toAbsolutePath().toString());
     }
 
     public Path UploadFile(String fileName, MultipartFile content) throws IOException {
@@ -47,5 +52,17 @@ public class FileManager {
         }  catch (IOException e) {
             System.err.println("Failed to delete file: " + e.getMessage());
         }
+    }
+
+    public String getDirectoryPath(Directory directory) {
+        return switch (directory) {
+            case UPLOADS -> System.getProperty("app.dir.uploads");
+            case SKILLS -> System.getProperty("app.dir.skills");
+            default -> System.getProperty("app.dir");
+        };
+    }
+
+    public File GetFile(Path pathToFile) throws IOException {
+        return pathToFile.toFile();
     }
 }

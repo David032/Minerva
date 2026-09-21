@@ -7,6 +7,12 @@ services:
       - POSTGRES_DB=postgres
     networks:
       - minerva-network
+  litert:
+    build: litert
+    ports:
+      - 9379:9379
+    networks:
+      - minerva-network
   db:
     image: postgres
     restart: always
@@ -25,6 +31,11 @@ services:
     build: voice
     ports:
       - 8000:8000
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/ping" ]
+      interval: 60s
+      timeout: 10s
+      retries: 5
     networks:
       - minerva-network
 volumes:

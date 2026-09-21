@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,7 +20,7 @@ import java.nio.file.Paths;
 @ResponseBody
 public class ConversationController {
 
-    ConversationController (ChatClient.Builder ai, SessionService sessionService) {
+    ConversationController (ChatClient.Builder ai, SessionService sessionService) throws IOException {
         ConversationManager.Initialize(ai, sessionService);
     }
 
@@ -35,4 +36,11 @@ public class ConversationController {
         FileManager.getInstance().DeleteFile(image.getOriginalFilename());
         return response;
     }
+
+    @PostMapping("/audio")
+    File audio(@RequestParam MultipartFile audio) throws IOException {
+        var uploadPath = FileManager.getInstance().UploadFile(audio.getOriginalFilename(),audio);
+        return ConversationManager.audioProcessing(uploadPath.toString());
+    }
+
 }
