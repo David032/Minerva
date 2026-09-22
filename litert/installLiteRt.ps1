@@ -19,10 +19,10 @@ if (Get-Command litert-lm -ErrorAction SilentlyContinue) {
 }
 
 # Copy config.json to ~/.litert-lm/config.json
-#$ConfigDir = Join-Path $HOME '.litert-lm'
-#if (-not (Test-Path $ConfigDir)) {
-#    New-Item -ItemType Directory -Path $ConfigDir | Out-Null
-#}
+$ConfigDir = Join-Path $HOME '.litert-lm'
+if (-not (Test-Path $ConfigDir)) {
+    New-Item -ItemType Directory -Path $ConfigDir | Out-Null
+}
 $DestinationFile = Join-Path $ConfigDir 'config.json'
 Copy-Item -Path 'config.json' -Destination $DestinationFile -Force
 

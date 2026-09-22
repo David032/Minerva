@@ -3,6 +3,6 @@
     "backend": "cpu",
     "audio-backend": "gpu",
     "vision-backend": "gpu",
-    "max_num_tokens": 4200
+    "max_num_tokens": 4096
   }
 }
