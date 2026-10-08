@@ -36,7 +36,6 @@ public class ConversationManager {
 
     private ConversationManager()
     {
-
         single_instance = this;
         voiceClient = RestClient.builder().baseUrl("http://localhost:8000").build();
     }

@@ -1,6 +1,11 @@
 # Use a Python image with uv pre-installed
 FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim
 
+#RUN groupadd --system --gid 999 liteRtUser \
+# && useradd --system --gid 999 --uid 999 --create-home liteRtUser
+#
+#USER nonroot
+
 # Keeps Python from buffering stdout and stderr to avoid situations where
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
@@ -17,6 +22,7 @@ ENV UV_TOOL_BIN_DIR=/usr/local/bin
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
+EXPOSE 9379
 COPY installLitert.sh /installLitert.sh
 RUN chmod +x /installLitert.sh
 CMD ["/installLitert.sh"]
