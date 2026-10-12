@@ -30,7 +30,7 @@ services:
 
   litert:
     build:
-      context: ./LiteRt
+      context: ./LiteRT-LM.Containerised
     image: minerva-litert:local
     restart: unless-stopped
     ports:
