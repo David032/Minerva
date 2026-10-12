@@ -69,6 +69,9 @@ public class ConversationManager {
     }
 
     public static String sendMessage(String message) {
+        if (message == null || message.isEmpty()){
+            return "";
+        }
         return aiChatClient
                 .prompt()
                 .tools(new DateTimeTools())

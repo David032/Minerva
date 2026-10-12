@@ -6,8 +6,10 @@ echo "========================================="
 echo " Installing litert-lm via uv "
 echo "========================================="
 # LiteRT-LM requires Python 3.10 or higher.
-echo "📦 Installing litert-lm CLI..."
-uv tool install --python 3.11 litert-lm
+echo "📦 Checking litert-lm CLI..."
+if ! command -v litert-lm >/dev/null 2>&1; then
+    uv tool install --python 3.11 litert-lm
+fi
 
 # Verify the installation
 echo "⚡ Verifying installation..."

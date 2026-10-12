@@ -1,47 +1,91 @@
 services:
   core:
-    build: core
+    build:
+      context: ./core
+    image: minerva-core:local
+    restart: unless-stopped
     ports:
-      - 8080:8080
+      - "8080:8080"
     environment:
-      - POSTGRES_DB=postgres
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      SPRING_AI_OPENAI_BASE_URL: http://litert:9379/v1
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
     networks:
       - minerva-network
+    depends_on:
+      db:
+        condition: service_healthy
+      voice:
+        condition: service_healthy
+      litert:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q 'UP'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
   litert:
-    build: litert
+    build:
+      context: ./litert
+    image: minerva-litert:local
+    restart: unless-stopped
     ports:
-      - 9379:9379
+      - "9379:9379"
     networks:
       - minerva-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9379/v1/models')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 300s
+
   db:
-    image: postgres
-    restart: always
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+      PGDATA: /var/lib/postgresql/data/pgdata
     secrets:
       - db-password
     volumes:
-      - db-data:/var/lib/postgresql
+      - db-data:/var/lib/postgresql/data
     networks:
       - minerva-network
-    environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-    expose:
-      - 5432
-  voice:
-    build: voice
-    ports:
-      - 8000:8000
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/ping" ]
-      interval: 60s
-      timeout: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 10s
+      timeout: 5s
       retries: 5
+
+  voice:
+    build:
+      context: ./voice
+    image: minerva-voice:local
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
     networks:
       - minerva-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ping')"]
+      interval: 60s
+      timeout: 5s
+      retries: 10
+      start_period: 300s
+
 volumes:
   db-data:
+
 secrets:
   db-password:
-    file: db/password.txt
+    file: ./db/password.txt
+
 networks:
   minerva-network:

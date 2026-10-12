@@ -1,0 +1,16 @@
+# Build contexts are service-specific; keep dependency caches and local artifacts out.
+**/.git
+**/.gitignore
+**/.idea
+**/.vscode
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.venv
+**/target
+**/build
+**/tmp
+**/node_modules
+**/*.log
+password.txt
+.env
