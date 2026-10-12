@@ -1,0 +1,6 @@
+[submodule "SimpleVoice"]
+	path = SimpleVoice
+	url = https://github.com/David032/SimpleVoice.git
+[submodule "LiteRt"]
+	path = LiteRt
+	url = https://github.com/David032/LiteRt.git
