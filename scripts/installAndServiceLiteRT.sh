@@ -1,122 +1,134 @@
 #!/usr/bin/env bash
-
-# Run litert/installLitert.sh first
-#!/usr/bin/env bash
+# Install UV via pipx, install liteRt-lm via `uv tool install`, import gemma4-e2b,
+# and create+enable a systemd service that starts the liteRt-lm OpenAI-compatible server.
+# The service runs as the user who invoked this script (SUDO_USER if script run with sudo).
+# Run as root: sudo bash ./install_litert.sh
 
 set -euo pipefail
 
-echo "========================================="
-echo " Installing litert-lm via uv "
-echo "========================================="
-# LiteRT-LM requires Python 3.10 or higher.
-echo "📦 Installing litert-lm CLI..."
-uv tool install --python 3.11 litert-lm
+# Configurable
+SERVICE_NAME="litert-openai"
+SERVICE_PORT=9379
+GEMMA_IMPORT_CMD="litert-lm import --from-huggingface-repo litert-community/gemma-4-E2B-it-litert-lm gemma-4-E2B-it.litertlm gemma4-e2b"
+EXEC_START_CMD="litert-lm serve --host 0.0.0.0 --port ${SERVICE_PORT}"
 
-# Verify the installation
-echo "⚡ Verifying installation..."
-if command -v litert-lm &> /dev/null; then
-    echo "🎉 Success! litert-lm has been installed."
+# Helpers
+run() { echo "+ $*"; "$@"; }
+
+# Must run as root so we can create systemd unit and install system packages
+if [ "$EUID" -ne 0 ]; then
+  echo "This script must be run as root (use sudo)." >&2
+  exit 1
+fi
+
+# Determine the user the service should run as:
+# Prefer SUDO_USER (original invoking user when using sudo), otherwise fall back to the current user.
+RUN_AS_USER="${SUDO_USER:-$(logname 2>/dev/null || whoami)}"
+if [ -z "$RUN_AS_USER" ]; then
+  echo "Unable to determine invoking user." >&2
+  exit 1
+fi
+
+# Determine user's home directory
+USER_HOME="$(getent passwd "$RUN_AS_USER" | cut -d: -f6 || true)"
+if [ -z "$USER_HOME" ]; then
+  # fallback
+  if [ "$RUN_AS_USER" = "root" ]; then
+    USER_HOME="/root"
+  else
+    USER_HOME="/home/${RUN_AS_USER}"
+  fi
+fi
+
+echo "Service will run as user: $RUN_AS_USER (home: $USER_HOME)"
+
+# Install system prerequisites (Debian/Ubuntu apt-get preferred)
+if command -v apt-get >/dev/null 2>&1; then
+  run apt-get update
+  run apt-get install -y git curl python3 python3-venv python3-pip build-essential
 else
-    # Fallback check if the local bin path isn't refreshed in the current shell
-    echo "⚠️  Installation complete, but 'litert-lm' is not yet in your PATH."
-    echo "Running: source \$HOME/.local/bin/env"
-    source \$HOME/.local/bin/env
+  echo "Non-apt system detected. Ensure python3, pip and build tools are installed manually." >&2
 fi
 
-# Copy config.json to ~/.litert-lm/config.json
-#CONFIG_DIR="$HOME/.litert-lm"
-#if [ ! -d "$CONFIG_DIR" ]; then
-#    mkdir -p "$CONFIG_DIR"
-#fi
-#cp "config.json" "$CONFIG_DIR/config.json"
-
-# Define the directory and file path
-TARGET_DIR="$HOME/.litert-lm"
-TARGET_FILE="$TARGET_DIR/config.json"
-
-# 1. Create the directory and check for success
-if ! mkdir -p "$TARGET_DIR"; then
-    echo "Error: Failed to create directory $TARGET_DIR" >&2
-    exit 1
-fi
-
-# 2. Check if file exists. If it does, skip everything else.
-if [ -f "$TARGET_FILE" ]; then
-    echo "File already exists at $TARGET_FILE. Skipping creation."
-else
-    # 3. Detect hardware and generate the JSON (Only runs if file doesn't exist)
-    if grep -Eqi "raspberry pi|bcm[0-9]{4}" /proc/cpuinfo 2>/dev/null || [ -f /sys/firmware/devicetree/base/model ] && grep -qi "raspberry pi" /sys/firmware/devicetree/base/model; then
-        echo "Raspberry Pi detected"
-
-        cat << 'EOF' > "$TARGET_FILE" 2>/dev/null
-{
-  "default": {
-    "backend": "cpu",
-    "audio-backend": "gpu",
-    "vision-backend": "gpu",
-    "max_num_tokens": 8192
-  }
-}
-EOF
+# Ensure pipx exists (system-wide). Prefer package manager, else pip.
+if ! command -v pipx >/dev/null 2>&1; then
+  echo "pipx not found, attempting installation..."
+  if command -v apt-get >/dev/null 2>&1; then
+    # some distros provide pipx via apt as python3-pipx or pipx
+    if apt-get install -y pipx python3-pipx 2>/dev/null; then
+      echo "Installed pipx via apt."
     else
-        echo "non-pi, so assuming container"
-
-        cat << 'EOF' > "$TARGET_FILE" 2>/dev/null
-{
-  "default": {
-    "backend": "cpu",
-    "audio-backend": "cpu",
-    "vision-backend": "cpu",
-    "max_num_tokens": 8192
-  }
-}
-EOF
+      echo "apt install pipx failed; installing pipx via pip."
+      run python3 -m pip install --upgrade pipx
+      # ensure /usr/local/bin in PATH for the rest of the script
+      export PATH="/usr/local/bin:${PATH}"
     fi
-
-    # 4. Verify the file was written successfully
-    if [ $? -eq 0 ]; then
-        echo "Configuration file successfully created at: $TARGET_FILE"
-    else
-        echo "Error: Failed to write configuration to $TARGET_FILE" >&2
-        exit 1
-    fi
+  else
+    run python3 -m pip install --upgrade pipx || true
+    export PATH="/usr/local/bin:${PATH}"
+  fi
 fi
 
-# Download the e2b model
-litert-lm import --from-huggingface-repo litert-community/gemma-4-E2B-it-litert-lm gemma-4-E2B-it.litertlm gemma4-e2b
+# Locate pipx binary
+PIPX_BIN="$(command -v pipx 2>/dev/null || true)"
+if [ -z "$PIPX_BIN" ]; then
+  # Try common locations
+  for p in /usr/local/bin/pipx /usr/bin/pipx /root/.local/bin/pipx; do
+    if [ -x "$p" ]; then PIPX_BIN="$p" && break; fi
+  done
+fi
+if [ -z "$PIPX_BIN" ]; then
+  echo "pipx not found after installation attempts. Install pipx and re-run." >&2
+  exit 1
+fi
+echo "Using pipx at: $PIPX_BIN"
 
-# Setup the LiteRt-LM service
-SERVICE_NAME=LiteRT
-USER_NAME="$(whoami)"
+# Ensure the invoking user's ~/.local exists and is owned by them
+run mkdir -p "${USER_HOME}/.local/bin" "${USER_HOME}/.local/pipx"
+run chown -R "${RUN_AS_USER}:${RUN_AS_USER}" "${USER_HOME}/.local" || true
 
-# Define the service file path
+# Install uv via pipx as the invoking user
+echo "Installing uv via pipx for user ${RUN_AS_USER}..."
+run su - "${RUN_AS_USER}" -s /bin/bash -c "PATH=\$HOME/.local/bin:/usr/local/bin:/usr/bin:${PATH}; ${PIPX_BIN} install uv"
+
+# Install liteRt-lm using uv (as invoking user)
+echo "Installing liteRt-lm via 'uv tool install litert-lm' as ${RUN_AS_USER}..."
+run su - "${RUN_AS_USER}" -s /bin/bash -c "PATH=\$HOME/.local/bin:/usr/local/bin:/usr/bin:${PATH}; uv tool install litert-lm"
+
+# Run gemma import as the invoking user
+echo "Running gemma4-e2b import as ${RUN_AS_USER} (this may take a while)..."
+run su - "${RUN_AS_USER}" -s /bin/bash -c "PATH=\$HOME/.local/bin:/usr/local/bin:/usr/bin:${PATH}; ${GEMMA_IMPORT_CMD}"
+
+# Create systemd unit file that runs as the invoking user
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-
-echo "Creating systemd service file at ${SERVICE_FILE}..."
-
-# Create the service file using a heredoc
-# Use sudo to ensure we have write permissions in /etc/systemd/system/
-sudo bash -c "cat <<EOF > ${SERVICE_FILE}
+echo "Creating systemd unit at ${SERVICE_FILE}"
+cat > "${SERVICE_FILE}" <<EOF
 [Unit]
-Description= Autorunner for LiteRT-LM
+Description=liteRt-lm OpenAI-compatible server (litert) - run as ${RUN_AS_USER}
 After=network.target
 
 [Service]
 Type=simple
-ExecStart= litert-lm serve --host 0.0.0.0 --port 9379
+User=${RUN_AS_USER}
+Group=${RUN_AS_USER}
+WorkingDirectory=${USER_HOME}
+Environment=HOME=${USER_HOME}
+Environment=PATH=${USER_HOME}/.local/bin:/usr/local/bin:/usr/bin
+ExecStart=${USER_HOME}/.local/bin/${EXEC_START_CMD}
 Restart=on-failure
-User=${USER_NAME}
+RestartSec=5
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target
-EOF"
+EOF
 
-# Set standard permissions (644)
-sudo chmod 644 "${SERVICE_FILE}"
+chmod 644 "${SERVICE_FILE}"
 
-# Reload systemd to recognize the new service
-sudo systemctl daemon-reload
+# Reload systemd and enable/start the service
+run systemctl daemon-reload
+run systemctl enable --now "${SERVICE_NAME}.service"
 
-echo "Service ${SERVICE_NAME} created and systemd reloaded."
-echo "To start: sudo systemctl start ${SERVICE_NAME}"
-echo "To enable on boot: sudo systemctl enable ${SERVICE_NAME}"
+echo "Done. The service '${SERVICE_NAME}' is enabled and starting (as ${RUN_AS_USER})."
+echo "Check status: systemctl status ${SERVICE_NAME}.service"
+echo "View logs: journalctl -u ${SERVICE_NAME}.service -f"
