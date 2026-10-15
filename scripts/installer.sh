@@ -4,10 +4,9 @@
 # runs the install script (with sudo if necessary), then brings up the docker-compose stack.
 set -euo pipefail
 
-# Configurable: target directory and commit to pin exact file versions
+# Configurable: target directory and c
 TARGET_DIR="${1:-./minerva-deploy}"
-COMMIT="ef650db3bf6c5e13f0fa73aa8ac47ee2a38ada25"
-RAW_BASE="https://raw.githubusercontent.com/David032/Minerva/${COMMIT}"
+RAW_BASE="https://raw.githubusercontent.com/David032/Minerva"
 PROD_FILE="prod-compose.yaml"
 INSTALL_SCRIPT_PATH="scripts/installAndServiceLiteRT.sh"
 INSTALL_SCRIPT_NAME="$(basename "$INSTALL_SCRIPT_PATH")"
