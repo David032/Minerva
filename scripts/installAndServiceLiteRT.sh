@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Install uv (via pip --user), install liteRt-lm via `uv tool install litert-lm`,
-# import gemma4-e2b, and create+enable a systemd service that starts the liteRt-lm OpenAI-compatible server.
-# The service runs as the user who invoked the script (SUDO_USER if using sudo).
-# Run as root: sudo bash ./install_litert.sh
+# Install liteRt-lm via `uv tool install`, import gemma4-e2b,
+# and create+enable a systemd service that starts the liteRt-lm OpenAI-compatible server.
+# Assumes UV is already installed and available to the invoking user.
+# Run as root (so the script can write the systemd unit): sudo bash ./install_litert.sh
 
 set -euo pipefail
 
@@ -37,33 +37,25 @@ fi
 
 echo "Service will run as user: $RUN_AS_USER (home: $USER_HOME)"
 
-# Install system prerequisites (Debian/Ubuntu apt-get preferred)
-if command -v apt-get >/dev/null 2>&1; then
-  run apt-get update
-  run apt-get install -y git curl python3 python3-venv python3-pip build-essential
-else
-  echo "Non-apt system detected. Ensure python3, pip and build tools are installed manually." >&2
-fi
-
-# Ensure the invoking user's ~/.local exists and is owned by them
-run mkdir -p "${USER_HOME}/.local/bin" "${USER_HOME}/.local/lib" "${USER_HOME}/.cache"
+# Ensure user's local bin is present and owned by them
+run mkdir -p "${USER_HOME}/.local/bin" "${USER_HOME}/.local/share" "${USER_HOME}/.cache"
 run chown -R "${RUN_AS_USER}:${RUN_AS_USER}" "${USER_HOME}/.local" "${USER_HOME}/.cache" || true
 
-# Install/upgrade pip in user site and install uv via pip --user as the invoking user
-echo "Installing/upgrading pip and installing uv for user ${RUN_AS_USER} (pip --user)..."
-run su - "${RUN_AS_USER}" -s /bin/bash -c "python3 -m pip install --upgrade --user pip setuptools wheel >/dev/null"
-run su - "${RUN_AS_USER}" -s /bin/bash -c "PATH=\$HOME/.local/bin:/usr/local/bin:/usr/bin:\$PATH; python3 -m pip install --user --upgrade uv"
+# PATH to use when running uv and litert-lm for the user
+USER_PATH="${USER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin"
 
-# Ensure uv is available in user's ~/.local/bin
-echo "Ensuring uv is on user's PATH for subsequent commands..."
-USER_PATH="${USER_HOME}/.local/bin:/usr/local/bin:/usr/bin"
+# Check that uv is available for the invoking user
+if ! su - "${RUN_AS_USER}" -s /bin/bash -c "PATH=${USER_PATH}:\$PATH; command -v uv >/dev/null 2>&1"; then
+  echo "Error: 'uv' was not found in ${RUN_AS_USER}'s PATH. Ensure UV is installed and available to the user before running this script." >&2
+  exit 2
+fi
 
-# Install liteRt-lm using uv (as invoking user)
+# Install liteRt-lm via uv as the invoking user
 echo "Installing liteRt-lm via 'uv tool install litert-lm' as ${RUN_AS_USER}..."
 run su - "${RUN_AS_USER}" -s /bin/bash -c "PATH=${USER_PATH}:\$PATH; uv tool install litert-lm"
 
-# Run gemma import as the invoking user (this may take a while)
-echo "Running gemma4-e2b import as ${RUN_AS_USER}..."
+# Run the Gemma import command as the invoking user
+echo "Running gemma4-e2b import as ${RUN_AS_USER} (may take a while)..."
 run su - "${RUN_AS_USER}" -s /bin/bash -c "PATH=${USER_PATH}:\$PATH; ${GEMMA_IMPORT_CMD}"
 
 # Create systemd unit file that runs as the invoking user
@@ -80,8 +72,8 @@ User=${RUN_AS_USER}
 Group=${RUN_AS_USER}
 WorkingDirectory=${USER_HOME}
 Environment=HOME=${USER_HOME}
-Environment=PATH=${USER_HOME}/.local/bin:/usr/local/bin:/usr/bin
-ExecStart=/bin/bash -lc 'export HOME=${USER_HOME}; export PATH=${USER_HOME}/.local/bin:/usr/local/bin:/usr/bin; exec ${LITERT_SERVE_CMD}'
+Environment=PATH=${USER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash -lc 'export HOME=${USER_HOME}; export PATH=${USER_HOME}/.local/bin:/usr/local/bin:/usr/bin:/bin; exec ${LITERT_SERVE_CMD}'
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
