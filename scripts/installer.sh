@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Creates a deploy directory, downloads prod-compose.yaml and install script from the repo,
+# auto-generates a strong POSTGRES_PASSWORD, writes it to .env and db/password.txt (used by your compose secrets),
+# runs the install script (with sudo if necessary), then brings up the docker-compose stack.
+set -euo pipefail
+
+# Configurable: target directory and commit to pin exact file versions
+TARGET_DIR="${1:-./minerva-deploy}"
+COMMIT="ef650db3bf6c5e13f0fa73aa8ac47ee2a38ada25"
+RAW_BASE="https://raw.githubusercontent.com/David032/Minerva/${COMMIT}"
+PROD_FILE="prod-compose.yaml"
+INSTALL_SCRIPT_PATH="scripts/installAndServiceLiteRT.sh"
+INSTALL_SCRIPT_NAME="$(basename "$INSTALL_SCRIPT_PATH")"
+PROD_URL="${RAW_BASE}/${PROD_FILE}"
+INSTALL_URL="${RAW_BASE}/${INSTALL_SCRIPT_PATH}"
+
+echo "Target directory: $TARGET_DIR"
+
+# Ensure curl exists
+if ! command -v curl >/dev/null 2>&1; then
+  echo "Error: curl is required but not installed. Install curl and re-run." >&2
+  exit 1
+fi
+
+# Create directory and download files
+mkdir -p "$TARGET_DIR"
+cd "$TARGET_DIR"
+
+echo "Downloading ${PROD_FILE} from ${PROD_URL}..."
+curl -fsSL "$PROD_URL" -o "$PROD_FILE" || { echo "Failed to download $PROD_FILE"; exit 1; }
+
+echo "Downloading ${INSTALL_SCRIPT_NAME} from ${INSTALL_URL}..."
+curl -fsSL "$INSTALL_URL" -o "$INSTALL_SCRIPT_NAME" || { echo "Failed to download $INSTALL_SCRIPT_NAME"; exit 1; }
+chmod +x "$INSTALL_SCRIPT_NAME"
+
+# Auto-generate a strong password (64 hex chars = 256 bits)
+if command -v openssl >/dev/null 2>&1; then
+  POSTGRES_PASSWORD="$(openssl rand -hex 32)"
+else
+  # Fallback using /dev/urandom + od
+  POSTGRES_PASSWORD="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n' )"
+fi
+
+# Create .env with POSTGRES_PASSWORD
+cat > .env <<EOF
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+EOF
+chmod 600 .env
+echo ".env created with POSTGRES_PASSWORD (permissions 600)."
+
+# Ensure db/password.txt exists for Docker secrets (path referenced in prod-compose.yaml)
+mkdir -p db
+echo -n "${POSTGRES_PASSWORD}" > db/password.txt
+chmod 600 db/password.txt
+echo "Wrote db/password.txt (permissions 600) for Docker secret 'db-password'."
+
+# Print the generated password once for the operator to copy/store securely
+echo
+echo "Generated POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}"
+echo "Stored in: ${TARGET_DIR}/.env and ${TARGET_DIR}/db/password.txt (both permission 600)."
+echo
+
+# Run the install script (the script itself expects to be run as root; use sudo if needed)
+echo "About to run ${INSTALL_SCRIPT_NAME} (this may install packages and create a systemd service)."
+if [ "$EUID" -ne 0 ]; then
+  if command -v sudo >/dev/null 2>&1; then
+    echo "Running with sudo: sudo bash ./${INSTALL_SCRIPT_NAME}"
+    sudo bash "./${INSTALL_SCRIPT_NAME}"
+  else
+    echo "This step requires root privileges but sudo is not available. Re-run as root." >&2
+    exit 1
+  fi
+else
+  bash "./${INSTALL_SCRIPT_NAME}"
+fi
+
+# Start docker compose stack (attempt docker compose plugin first, fallback to docker-compose)
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Error: Docker is not installed or not in PATH. Install Docker and re-run to bring up the stack." >&2
+  exit 1
+fi
+
+COMPOSE_CMD=""
+if docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD="docker-compose"
+else
+  echo "Error: docker compose plugin or docker-compose not found. Install a compose tool and re-run." >&2
+  exit 1
+fi
+
+echo "Bringing up services with: $COMPOSE_CMD -f ${PWD}/${PROD_FILE} up -d"
+# Docker Compose automatically reads .env from current directory, so no extra args needed
+$COMPOSE_CMD -f "${PWD}/${PROD_FILE}" up -d
+
+echo "Stack started. Showing compose ps:"
+$COMPOSE_CMD -f "${PWD}/${PROD_FILE}" ps
+
+echo "All done. The files are in: ${TARGET_DIR}"
+echo "prod-compose: ${PWD}/${PROD_FILE}"
+echo "install script: ${PWD}/${INSTALL_SCRIPT_NAME}"
+echo "If you need to view logs: ${COMPOSE_CMD} -f ${PWD}/${PROD_FILE} logs -f"
