@@ -54,7 +54,8 @@ fi
 if ! command -v pipx >/dev/null 2>&1; then
   echo "pipx not found, attempting installation..."
   if command -v apt-get >/dev/null 2>&1; then
-    if apt install -y pipx 2>/dev/null; then
+    # some distros provide pipx via apt as python3-pipx or pipx
+    if apt-get install -y pipx python3-pipx 2>/dev/null; then
       echo "Installed pipx via apt."
     else
       echo "apt install pipx failed; installing pipx via pip."
