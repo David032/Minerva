@@ -1,5 +1,5 @@
 # Minerva
-It's an ai thingy
+Minerva is an experimental, entirely local AI system
 # Installation Requirements
 * UV
 * Docker
