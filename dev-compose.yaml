@@ -12,6 +12,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       SPRING_AI_OPENAI_BASE_URL: http://litert:9379/v1
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
+    volumes:
+      - core-tmp:/tmp
     networks:
       - minerva-network
     depends_on:
@@ -35,14 +37,17 @@ services:
     restart: unless-stopped
     ports:
       - "9379:9379"
+    volumes:
+      - litert-data:/home/app/.litert-lm
+      - litert-cache:/home/app/.cache
     networks:
       - minerva-network
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9379/')\""]
       interval: 30s
       timeout: 5s
-      start_period: 300s
       retries: 10
+      start_period: 300s
 
   db:
     image: postgres:17-alpine
@@ -66,22 +71,30 @@ services:
 
   voice:
     build:
-      context: ./voice
+      context: ./SimpleVoice
     image: minerva-voice:local
     restart: unless-stopped
     ports:
       - "8000:8000"
+    volumes:
+      - voice-tmp:/app/tmp
+      - voice-cache:/home/app/.cache
     networks:
       - minerva-network
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ping')"]
-      interval: 30s
+      interval: 60s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 300s
 
 volumes:
+  core-tmp:
   db-data:
+  litert-cache:
+  litert-data:
+  voice-cache:
+  voice-tmp:
 
 secrets:
   db-password:
@@ -89,4 +102,3 @@ secrets:
 
 networks:
   minerva-network:
- minerva-network:

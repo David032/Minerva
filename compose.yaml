@@ -12,6 +12,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       SPRING_AI_OPENAI_BASE_URL: http://litert:9379/v1
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
+      TERMINAL_INPUT: False
+    volumes:
+      - core-tmp:/tmp
     networks:
       - minerva-network
     depends_on:
@@ -35,6 +38,9 @@ services:
     restart: unless-stopped
     ports:
       - "9379:9379"
+    volumes:
+      - litert-data:/home/app/.litert-lm
+      - litert-cache:/home/app/.cache
     networks:
       - minerva-network
     healthcheck:
@@ -71,6 +77,9 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    volumes:
+      - voice-tmp:/app/tmp
+      - voice-cache:/home/app/.cache
     networks:
       - minerva-network
     healthcheck:
@@ -81,7 +90,12 @@ services:
       start_period: 300s
 
 volumes:
+  core-tmp:
   db-data:
+  litert-cache:
+  litert-data:
+  voice-cache:
+  voice-tmp:
 
 secrets:
   db-password:

@@ -7,6 +7,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import java.util.Objects;
+
 import static java.lang.IO.*;
 
 @SpringBootApplication()
@@ -16,13 +18,16 @@ public class MinervaApplication {
 
         SpringApplication.run(MinervaApplication.class, args);
 
-        while (true) {
-            print("> ");
-            var line = readln();
-            println();
-            print(ConversationManager.sendMessage(line));
-            println();
+        if (Objects.equals(System.getenv("TERMINAL_INPUT"), "true")){
+            while (true) {
+                print("> ");
+                var line = readln();
+                println();
+                print(ConversationManager.sendMessage(line));
+                println();
+            }
         }
+
     }
 
     @Bean
