@@ -10,8 +10,8 @@ RAW_BASE="https://raw.githubusercontent.com/David032/Minerva"
 PROD_FILE="prod-compose.yaml"
 INSTALL_SCRIPT_PATH="scripts/installAndServiceLiteRT.sh"
 INSTALL_SCRIPT_NAME="$(basename "$INSTALL_SCRIPT_PATH")"
-PROD_URL="${RAW_BASE}/${PROD_FILE}"
-INSTALL_URL="${RAW_BASE}/${INSTALL_SCRIPT_PATH}"
+PROD_URL="${RAW_BASE}/refs/heads/master/${PROD_FILE}"
+INSTALL_URL="${RAW_BASE}/refs/heads/master/${INSTALL_SCRIPT_PATH}"
 
 echo "Target directory: $TARGET_DIR"
 
