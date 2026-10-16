@@ -9,7 +9,7 @@ set -euo pipefail
 SERVICE_NAME="litert-openai"
 SERVICE_PORT=9379
 GEMMA_IMPORT_CMD="litert-lm import --from-huggingface-repo litert-community/gemma-4-E2B-it-litert-lm gemma-4-E2B-it.litertlm gemma4-e2b"
-LITERT_SERVE_CMD="litert-lm serve --host 0.0.0.0 --port ${SERVICE_PORT} --openai-compatible"
+LITERT_SERVE_CMD="litert-lm serve --host 0.0.0.0 --port ${SERVICE_PORT}"
 
 run() { echo "+ $*"; "$@"; }
 
