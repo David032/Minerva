@@ -9,9 +9,12 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      SPRING_AI_OPENAI_BASE_URL: http://litert:9379/v1
+      SPRING_AI_OPENAI_BASE_URL: http://host.docker.internal:9379/v1
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
+      VOICE_SERVICE_URL: http://voice:8000
       TERMINAL_INPUT: False
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - core-tmp:/tmp
     networks:

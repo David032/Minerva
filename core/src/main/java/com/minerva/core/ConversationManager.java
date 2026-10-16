@@ -37,7 +37,7 @@ public class ConversationManager {
     private ConversationManager()
     {
         single_instance = this;
-        voiceClient = RestClient.builder().baseUrl("http://localhost:8000").build();
+        voiceClient = RestClient.builder().baseUrl(System.getenv().getOrDefault("VOICE_SERVICE_URL", "http://localhost:8000")).build();
     }
 
     public static void Initialize(ChatClient.Builder builder, SessionService sessionService) throws IOException {
@@ -101,7 +101,7 @@ public class ConversationManager {
         MultiValueMap<String, File> body = new LinkedMultiValueMap<>();
         var pathToResource = new FileUrlResource(pathToFile);
         body.add("file", pathToResource.getFile());
-        var convertedText = voiceClient.post().uri("http://localhost:8000/speech").body(body).retrieve().body(String.class);
+        var convertedText = voiceClient.post().uri("/speech").body(body).retrieve().body(String.class);
         String response = "";
         //Process the text
         if  (convertedText != null) {
@@ -118,7 +118,7 @@ public class ConversationManager {
         //Convert the response back to audio
         var responseAudio = voiceClient
                 .post()
-                .uri("http://localhost:8000/speech?text={textToConvert}", response)
+                .uri("/speech?text={textToConvert}", response)
                 .retrieve()
                 .body(MultipartFile.class);
 
