@@ -4,14 +4,21 @@ import com.minerva.tools.DateTimeTools;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
 import org.apache.commons.io.IOUtils;
+import org.springaicommunity.agent.advisors.AutoMemoryToolsAdvisor;
 import org.springaicommunity.agent.tools.*;
 import org.springaicommunity.agent.utils.AgentEnvironment;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
+import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
+import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
+import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.web.exchanges.HttpExchange;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileUrlResource;
@@ -31,8 +38,14 @@ import java.net.MalformedURLException;
 public class ConversationManager {
     private static ConversationManager single_instance = null;
     private static ChatClient aiChatClient;
-
     private static RestClient voiceClient;
+
+    @Value("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md")
+    static Resource memorySystemPrompt;
+    @Value("classpath:/prompts/BASE_PROMPT.md")
+    static Resource basePrompt;
+    @Value("classpath:/skills")
+    static Resource skills;
 
     private ConversationManager()
     {
@@ -41,23 +54,56 @@ public class ConversationManager {
     }
 
     public static void Initialize(ChatClient.Builder builder, SessionService sessionService) throws IOException {
-        SessionMemoryAdvisor advisor = SessionMemoryAdvisor.builder(sessionService)
+        var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
+        var pathToSkills = FileManager.getInstance().getDirectoryPath(Directory.SKILLS);
+
+        SessionMemoryAdvisor sessionMemoryAdvisor = SessionMemoryAdvisor.builder(sessionService)
                 .defaultUserId("user")
                 // Compact when 20 turns accumulate, keeping the last 10 events
                 .compactionTrigger(new TurnCountTrigger(20))
                 .compactionStrategy(SlidingWindowCompactionStrategy.builder().maxEvents(10).build())
                 .build();
+
+        AutoMemoryToolsAdvisor longTermMemoryAdvisor = AutoMemoryToolsAdvisor.builder()
+                .memoriesRootDirectory(pathToMemories)
+                .build();
+
+        MessageChatMemoryAdvisor shortTermMemoryAdvisor = MessageChatMemoryAdvisor
+                .builder(MessageWindowChatMemory.builder().maxMessages(100).build())
+                .build();
+
+        AutoMemoryTools memoryTools = AutoMemoryTools.builder()
+                .memoriesDir(pathToMemories)
+                .build();
+
+        var skillsSystem = SkillsTool.builder()
+                .addSkillsDirectory(pathToSkills)
+                .addSkillsResource(skills)
+                .build();
+
         aiChatClient = builder
-                .defaultAdvisors(advisor)
-                .defaultSystem(p -> p.text("You are a helpful agent")
+                .defaultAdvisors(
+                        sessionMemoryAdvisor,
+                        longTermMemoryAdvisor,
+                        shortTermMemoryAdvisor
+                )
+                .defaultSystem(p -> p.text(buildPrompt())
                         .param(AgentEnvironment.ENVIRONMENT_INFO_KEY, AgentEnvironment.info())
-                        .param(AgentEnvironment.GIT_STATUS_KEY, AgentEnvironment.gitStatus()))
+                        .param(AgentEnvironment.GIT_STATUS_KEY, AgentEnvironment.gitStatus())
+                        .param("MEMORIES_ROOT_DIERCTORY", pathToMemories))
                 .defaultTools(
                         ShellTools.builder().build(),
                         FileSystemTools.builder().build(),
                         GrepTool.builder().build(),
-                        GlobTool.builder().build())
+                        GlobTool.builder().build(),
+                        memoryTools,
+                        skillsSystem)
                 .build();
+    }
+
+    public static String buildPrompt(){
+        return basePrompt.toString() +
+                memorySystemPrompt.toString();
     }
 
     public static synchronized ConversationManager getInstance()

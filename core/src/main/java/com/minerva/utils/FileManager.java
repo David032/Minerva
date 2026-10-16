@@ -27,11 +27,13 @@ public class FileManager {
         Path MinervaPath = Paths.get(userHome, "MinervaOS");
         Path uploadPath = Paths.get(userHome, "MinervaOS","uploads");
         Path skillsPath = Paths.get(userHome, "MinervaOS","skills");
+        Path memoriesPath = Paths.get(userHome, "MinervaOS","memories");
 
         try {
             Files.createDirectories(MinervaPath);
             Files.createDirectories(uploadPath);
             Files.createDirectories(skillsPath);
+            Files.createDirectories(memoriesPath);
             System.out.println("Directories successfully verified/created at: " + MinervaPath.toAbsolutePath());
         } catch (IOException e) {
             System.err.println("Failed to create directory: " + e.getMessage());
@@ -39,6 +41,7 @@ public class FileManager {
         System.setProperty("app.dir", MinervaPath.toAbsolutePath().toString());
         System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
         System.setProperty("app.dir.skills", skillsPath.toAbsolutePath().toString());
+        System.setProperty("app.dir.memories", memoriesPath.toAbsolutePath().toString());
     }
 
     public Path UploadFile(String fileName, MultipartFile content) throws IOException {
@@ -58,6 +61,7 @@ public class FileManager {
         return switch (directory) {
             case UPLOADS -> System.getProperty("app.dir.uploads");
             case SKILLS -> System.getProperty("app.dir.skills");
+            case MEMORIES -> System.getProperty("app.dir.memories");
             default -> System.getProperty("app.dir");
         };
     }
