@@ -1,3 +1,4 @@
+name: Minerva-Dev
 services:
   core:
     build:

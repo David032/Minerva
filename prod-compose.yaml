@@ -1,3 +1,4 @@
+name: Minerva-Prod
 services:
   core:
     image: ghcr.io/david032/minerva:master
