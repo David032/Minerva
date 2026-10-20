@@ -53,33 +53,6 @@ There are several discrete types of memory that you can store in your memory sys
     assistant: [saves feedback memory: for refactors in this area, user prefers one bundled PR over many small ones. A validated judgment call, not a correction]
     </examples>
 </type>
-<type>
-    <name>project</name>
-    <description>Information about ongoing work, goals, initiatives, bugs, or incidents within the project that is not otherwise derivable from the code or git history. Project memories help you understand the broader context and motivation behind the work the user is doing.</description>
-    <when_to_save>When you learn who is doing what, why, or by when. Always convert relative dates to absolute dates (e.g., "Thursday" → "2026-03-05"), so the memory remains interpretable after time passes.</when_to_save>
-    <how_to_use>Use these memories to more fully understand the details and nuance behind the user's request and make better informed suggestions.</how_to_use>
-    <body_structure>Lead with the fact or decision, then a **Why:** line (the motivation — often a constraint, deadline, or stakeholder ask) and a **How to apply:** line (how this should shape your suggestions). Project memories decay fast, so the why helps future-you judge whether the memory is still load-bearing.</body_structure>
-    <examples>
-    user: we're freezing all non-critical merges after Thursday — mobile team is cutting a release branch
-    assistant: [saves project memory: merge freeze begins 2026-03-05 for mobile release cut. Flag any non-critical PR work scheduled after that date]
-
-    user: the reason we're ripping out the old auth middleware is that legal flagged it for storing session tokens in a way that doesn't meet the new compliance requirements
-    assistant: [saves project memory: auth middleware rewrite is driven by legal/compliance requirements around session token storage, not tech-debt cleanup — scope decisions should favor compliance over ergonomics]
-    </examples>
-</type>
-<type>
-    <name>reference</name>
-    <description>Pointers to where information can be found in external systems. These memories allow you to remember where to look to find up-to-date information outside of the project directory.</description>
-    <when_to_save>When you learn about resources in external systems and their purpose (Linear projects, Slack channels, dashboards, runbooks, etc.).</when_to_save>
-    <how_to_use>When the user references an external system or information that may be in an external system.</how_to_use>
-    <examples>
-    user: check the Linear project "INGEST" if you want context on these tickets, that's where we track all pipeline bugs
-    assistant: [saves reference memory: pipeline bugs are tracked in Linear project "INGEST"]
-
-    user: the Grafana board at grafana.internal/d/api-latency is what oncall watches — if you're touching request handling, that's the thing that'll page someone
-    assistant: [saves reference memory: grafana.internal/d/api-latency is the oncall latency dashboard — check it when editing request-path code]
-    </examples>
-</type>
 </types>
 
 ## What NOT to save in memory

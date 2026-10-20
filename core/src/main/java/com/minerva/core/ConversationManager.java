@@ -14,15 +14,15 @@ import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
+import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.web.exchanges.HttpExchange;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.FileUrlResource;
-import org.springframework.core.io.Resource;
+import org.springframework.core.io.*;
+import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.MultiValueMap;
@@ -34,18 +34,14 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.nio.charset.Charset;
+
+import static java.lang.IO.print;
 
 public class ConversationManager {
     private static ConversationManager single_instance = null;
     private static ChatClient aiChatClient;
     private static RestClient voiceClient;
-
-    @Value("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md")
-    static Resource memorySystemPrompt;
-    @Value("classpath:/prompts/BASE_PROMPT.md")
-    static Resource basePrompt;
-    @Value("classpath:/skills")
-    static Resource skills;
 
     private ConversationManager()
     {
@@ -56,6 +52,8 @@ public class ConversationManager {
     public static void Initialize(ChatClient.Builder builder, SessionService sessionService) throws IOException {
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
         var pathToSkills = FileManager.getInstance().getDirectoryPath(Directory.SKILLS);
+        ResourceLoader resourceLoader = new DefaultResourceLoader();
+        String prompt = buildPrompt();
 
         SessionMemoryAdvisor sessionMemoryAdvisor = SessionMemoryAdvisor.builder(sessionService)
                 .defaultUserId("user")
@@ -69,7 +67,7 @@ public class ConversationManager {
                 .build();
 
         MessageChatMemoryAdvisor shortTermMemoryAdvisor = MessageChatMemoryAdvisor
-                .builder(MessageWindowChatMemory.builder().maxMessages(100).build())
+                .builder(MessageWindowChatMemory.builder().maxMessages(20).build())
                 .build();
 
         AutoMemoryTools memoryTools = AutoMemoryTools.builder()
@@ -78,7 +76,7 @@ public class ConversationManager {
 
         var skillsSystem = SkillsTool.builder()
                 .addSkillsDirectory(pathToSkills)
-                .addSkillsResource(skills)
+                .addSkillsResource(resourceLoader.getResource("classpath:/skills"))
                 .build();
 
         aiChatClient = builder
@@ -87,7 +85,7 @@ public class ConversationManager {
                         longTermMemoryAdvisor,
                         shortTermMemoryAdvisor
                 )
-                .defaultSystem(p -> p.text(buildPrompt())
+                .defaultSystem(p -> p.text(prompt)
                         .param(AgentEnvironment.ENVIRONMENT_INFO_KEY, AgentEnvironment.info())
                         .param(AgentEnvironment.GIT_STATUS_KEY, AgentEnvironment.gitStatus())
                         .param("MEMORIES_ROOT_DIERCTORY", pathToMemories))
@@ -101,9 +99,10 @@ public class ConversationManager {
                 .build();
     }
 
-    public static String buildPrompt(){
-        return basePrompt.toString() +
-                memorySystemPrompt.toString();
+    public static String buildPrompt() throws IOException {
+        ResourceLoader resourceLoader = new DefaultResourceLoader();
+        return resourceLoader.getResource("classpath:/prompts/BASE_PROMPT.md").getContentAsString(Charset.defaultCharset()) +
+                resourceLoader.getResource("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md").getContentAsString(Charset.defaultCharset());
     }
 
     public static synchronized ConversationManager getInstance()
