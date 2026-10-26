@@ -55,7 +55,7 @@ services:
       - 11434:11434
     volumes:
       - ollama-data:/root/.ollama
-    container_name: ollama
+    container_name: ollama-prod
     pull_policy: always
     tty: true
     restart: unless-stopped

@@ -16,6 +16,7 @@ services:
       TERMINAL_INPUT: False
     volumes:
       - core-tmp:/tmp
+      - core-data:/home
     networks:
       - minerva-network
     depends_on:
@@ -88,6 +89,7 @@ volumes:
   voice-cache:
   voice-tmp:
   ollama-data:
+  core-data:
 
 secrets:
   db-password:
