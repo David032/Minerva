@@ -6,15 +6,13 @@ services:
     ports:
       - "8080:8080"
     environment:
+      VOICE_SERVICE_URL: http://voice:8000
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-      SPRING_AI_OPENAI_BASE_URL: http://host.docker.internal:9379/v1
+      SPRING_AI_OPENAI_BASE_URL: http://ollama:11434/
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
-      VOICE_SERVICE_URL: http://voice:8000
       TERMINAL_INPUT: False
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - core-tmp:/tmp
     networks:
@@ -51,6 +49,19 @@ services:
       timeout: 5s
       retries: 5
 
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - 11434:11434
+    volumes:
+      - ollama-data:/root/.ollama
+    container_name: ollama
+    pull_policy: always
+    tty: true
+    restart: unless-stopped
+    networks:
+      - minerva-network
+
   voice:
     image: ghcr.io/david032/simplevoice:master
     restart: unless-stopped
@@ -75,6 +86,7 @@ volumes:
   litert-data:
   voice-cache:
   voice-tmp:
+  ollama-data:
 
 secrets:
   db-password:

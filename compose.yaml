@@ -35,13 +35,11 @@ services:
     ports:
       - 11434:11434
     volumes:
-      - ./ollama/ollama:/root/.ollama
-      - ./ollama/entrypoint.sh:/entrypoint.sh
+      - ollama-data:/root/.ollama
     container_name: ollama
     pull_policy: always
     tty: true
     restart: unless-stopped
-    entrypoint: ["/usr/bin/bash", "/entrypoint.sh"]
     networks:
       - minerva-network
 
@@ -89,6 +87,7 @@ volumes:
   db-data:
   voice-cache:
   voice-tmp:
+  ollama-data:
 
 secrets:
   db-password:
