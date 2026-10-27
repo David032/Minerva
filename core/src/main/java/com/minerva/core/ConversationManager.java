@@ -4,13 +4,14 @@ import com.minerva.tools.DateTimeTools;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
 import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springaicommunity.agent.advisors.AutoMemoryToolsAdvisor;
 import org.springaicommunity.agent.tools.*;
 import org.springaicommunity.agent.utils.AgentEnvironment;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -42,6 +43,7 @@ public class ConversationManager {
     private static ConversationManager single_instance = null;
     private static ChatClient aiChatClient;
     private static RestClient voiceClient;
+    static Logger logger = LoggerFactory.getLogger(ConversationManager.class);
 
     private ConversationManager()
     {
@@ -115,15 +117,19 @@ public class ConversationManager {
 
     public static String sendMessage(String message) {
         if (message == null || message.isEmpty()){
+            logger.warn("Null or empty message");
             return "";
         }
-        return aiChatClient
+        logger.info("Received message: {}", message);
+        var response = aiChatClient
                 .prompt()
                 .tools(new DateTimeTools())
                 .user(message)
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();
+        logger.info("Responding with: {}", response);
+        return response;
     }
 
     public static String seekImageOpinion(String pathToFile, String request) throws MalformedURLException {
@@ -132,12 +138,14 @@ public class ConversationManager {
         var pathToResource = new FileUrlResource(pathToFile);
 
         String finalRequest = request;
+        logger.info("Received image message: {}", finalRequest);
         String response = aiChatClient.prompt()
                 .user(u -> u.text(finalRequest)
                         .media(MimeTypeUtils.IMAGE_JPEG, pathToResource))
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();
+        logger.info("Responding to image message with: {}", response);
         return  response;
     }
 
@@ -167,6 +175,7 @@ public class ConversationManager {
                 .retrieve()
                 .body(MultipartFile.class);
 
+        assert responseAudio != null;
         var pathToAudio = FileManager.getInstance().UploadFile(responseAudio.getOriginalFilename(), responseAudio);
         //Return the audio
         return FileManager.getInstance().GetFile(pathToAudio);

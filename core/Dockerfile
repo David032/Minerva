@@ -16,7 +16,7 @@ ENV PATH="/opt/java/openjdk/bin:${PATH}"
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends --yes curl \
+    && apt-get install --no-install-recommends --yes curl git \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid 10001 --create-home app
