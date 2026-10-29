@@ -11,9 +11,11 @@ import java.util.concurrent.TimeUnit;
 public class OllamaConnector {
     private static OllamaConnector instance = null;
     static RestClient ollamaClient;
+    static String baseUrl;
     Logger logger = LoggerFactory.getLogger(OllamaConnector.class);
     OllamaConnector(String url) {
         instance = this;
+        baseUrl = url;
         ollamaClient = RestClient.builder().baseUrl(url).build();
     }
 
@@ -57,5 +59,11 @@ public class OllamaConnector {
                 }
             }
         }
+    }
+
+    public boolean checkForModel(String model) {
+        var checkModel = ollamaClient.get().uri(baseUrl + "/api/tags").retrieve().toEntity(String.class);
+        assert checkModel.getBody() != null;
+        return checkModel.getBody().contains(model);
     }
 }
