@@ -2,5 +2,7 @@ package com.minerva.utils;
 
 public enum Directory {
     UPLOADS,
-    SKILLS
+    SKILLS,
+    MEMORIES,
+    LOGS
 }

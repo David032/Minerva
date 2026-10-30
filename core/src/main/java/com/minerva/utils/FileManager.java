@@ -1,5 +1,7 @@
 package com.minerva.utils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -9,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class FileManager {
+    Logger logger = LoggerFactory.getLogger(FileManager.class);
     private static FileManager single_instance = null;
     private FileManager() throws IOException {
         single_instance = this;
@@ -27,18 +30,25 @@ public class FileManager {
         Path MinervaPath = Paths.get(userHome, "MinervaOS");
         Path uploadPath = Paths.get(userHome, "MinervaOS","uploads");
         Path skillsPath = Paths.get(userHome, "MinervaOS","skills");
+        Path memoriesPath = Paths.get(userHome, "MinervaOS","memories");
+        Path logsPath = Paths.get(userHome, "MinervaOS","logs");
 
         try {
             Files.createDirectories(MinervaPath);
             Files.createDirectories(uploadPath);
             Files.createDirectories(skillsPath);
-            System.out.println("Directories successfully verified/created at: " + MinervaPath.toAbsolutePath());
+            Files.createDirectories(memoriesPath);
+            Files.createDirectories(logsPath);
+            logger.info("Created/verified MinervaOS Directory");
+            logger.debug("Located at: {}", uploadPath);
         } catch (IOException e) {
-            System.err.println("Failed to create directory: " + e.getMessage());
+            logger.error(e.getMessage());
         }
         System.setProperty("app.dir", MinervaPath.toAbsolutePath().toString());
         System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
         System.setProperty("app.dir.skills", skillsPath.toAbsolutePath().toString());
+        System.setProperty("app.dir.memories", memoriesPath.toAbsolutePath().toString());
+        System.setProperty("app.dir.logs", logsPath.toAbsolutePath().toString());
     }
 
     public Path UploadFile(String fileName, MultipartFile content) throws IOException {
@@ -50,7 +60,7 @@ public class FileManager {
         try {
             Files.delete(path);
         }  catch (IOException e) {
-            System.err.println("Failed to delete file: " + e.getMessage());
+            logger.error(e.getMessage());
         }
     }
 
@@ -58,6 +68,8 @@ public class FileManager {
         return switch (directory) {
             case UPLOADS -> System.getProperty("app.dir.uploads");
             case SKILLS -> System.getProperty("app.dir.skills");
+            case MEMORIES -> System.getProperty("app.dir.memories");
+            case LOGS -> System.getProperty("app.dir.logs");
             default -> System.getProperty("app.dir");
         };
     }
