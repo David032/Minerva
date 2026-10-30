@@ -30,6 +30,9 @@ jobs:
         settings-path: ${{ github.workspace }} # location for the settings.xml file
         cache: maven
 
+    - name: Make maven wrapper executable
+      run: chmod +x ./mvnw
+
     - name: Build project
       run: ./mvnw -B -DskipTests package
 

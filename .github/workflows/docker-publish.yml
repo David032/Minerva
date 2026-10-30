@@ -3,7 +3,7 @@ name: Build and Push Images
 # This workflow builds multi-arch images and pushes to Docker Hub and GHCR.
 env:
   # semantic version for metadata-action if desired
-  VERSION: 0.2
+  VERSION: 0.3
   # Remember to set DOCKER_USERNAME and DOCKER_PASSWORD as secrets
 
 on:
