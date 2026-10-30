@@ -1,6 +1,7 @@
 package com.minerva.core;
 
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestClient;
@@ -12,6 +13,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestClient
+@Tag("ContinuousIntegration")
 public class MinervaApiTests {
 
     @Test

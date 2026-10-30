@@ -1,8 +1,6 @@
 package com.minerva.core;
 
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -13,13 +11,13 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import static org.hamcrest.Matchers.*;
-import org.junit.jupiter.api.Test;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
 
 @Import(MinervaTestConfiguration.class)
 @SpringBootTest
+@Tag("ContinuousIntegration")
 class MinervaApplicationTests {
 
     @Autowired

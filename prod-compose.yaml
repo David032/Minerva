@@ -13,6 +13,7 @@ services:
       SPRING_AI_OPENAI_BASE_URL: http://ollama:11434/
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
       TERMINAL_INPUT: False
+      IS_PI_5: True #Assumes that a production deployment is running on a Raspberry Pi 5. If not, set this to False.
     volumes:
       - core-tmp:/tmp
       - core-data:/home
