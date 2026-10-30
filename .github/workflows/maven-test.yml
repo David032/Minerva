@@ -1,4 +1,4 @@
-name: Maven Build
+name: Maven Build & Test
 
 on:
   workflow_dispatch:
@@ -30,3 +30,6 @@ jobs:
 
     - name: Build project
       run: mvn -B -DskipTests package
+
+    - name: Test project
+      run: mvn -B -Dgroups=ContinuousIntegration test
