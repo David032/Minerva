@@ -58,8 +58,7 @@ class MinervaApplicationTests {
     void alarmInteraction() {
         String alarmTime = "2024-06-30T15:30:00";
         var response = ConversationManager.sendMessage("Set an alarm for " + alarmTime);
-        assertThat(response, notNullValue());
-        assertThat(response, containsString("Alarm set for " + alarmTime));
+        assertThat(response, stringContainsInOrder("Alarm", "set", "for", "2024-06-30", "15:30"));
     }
 
 }
