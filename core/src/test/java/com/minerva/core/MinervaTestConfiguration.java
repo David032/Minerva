@@ -12,6 +12,7 @@ import java.io.IOException;
 @TestConfiguration(proxyBeanMethods = false)
 public class MinervaTestConfiguration {
     @Bean
+    @ServiceConnection
     PostgreSQLContainer postgresContainer() {
         return new PostgreSQLContainer("postgres:17-alpine")
                 .withDatabaseName("postgres")
@@ -19,6 +20,7 @@ public class MinervaTestConfiguration {
                 .withPassword("ThingExplainer");
     }
     @Bean
+    @ServiceConnection
     OllamaContainer ollamaContainer() throws IOException, InterruptedException {
         var ollamaContainer = new OllamaContainer("ollama/ollama:latest").withStartupTimeout(java.time.Duration.ofMinutes(25))
                 .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forHttp("/api/tags").forStatusCode(200));
