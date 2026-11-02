@@ -1,5 +1,6 @@
 package com.minerva.core;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -13,8 +14,20 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestClient
+@Import(MinervaTestConfiguration.class)
 @Tag("ContinuousIntegration")
 public class MinervaApiTests {
+    @Autowired
+    private static PostgreSQLContainer postgresContainer;
+
+    @Autowired
+    private static OllamaContainer ollamaContainer;
+
+    @BeforeAll
+    static void checkContainersRunning() {
+        assert postgresContainer.isRunning();
+        assert ollamaContainer.isRunning();
+    }
 
     @Test
     void BasicInteraction(@Autowired RestTestClient restClient) {

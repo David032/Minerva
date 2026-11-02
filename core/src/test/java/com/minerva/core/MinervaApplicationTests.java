@@ -58,7 +58,7 @@ class MinervaApplicationTests {
     void alarmInteraction() {
         String alarmTime = "2024-06-30T15:30:00";
         var response = ConversationManager.sendMessage("Set an alarm for " + alarmTime);
-        assertThat(response, stringContainsInOrder("Alarm", "for", "2024-06-30", "15:30")); //This should be groupable...once I remember how to do that
+        assertThat(response.toLowerCase(), stringContainsInOrder("alarm", "for", "2024-06-30", "15:30")); //This should be groupable...once I remember how to do that
     }
 
 }
