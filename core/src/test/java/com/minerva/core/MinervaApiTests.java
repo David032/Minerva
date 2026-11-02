@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestClient;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.web.client.RestClient;
@@ -21,56 +22,63 @@ import java.util.Objects;
 @Tag("ContinuousIntegration")
 public class MinervaApiTests {
     @Autowired
-    private static PostgreSQLContainer postgresContainer;
+    private PostgreSQLContainer postgresContainer;
 
     @Autowired
-    private static OllamaContainer ollamaContainer;
+    private OllamaContainer ollamaContainer;
+
+    @Autowired
+    private RestTestClient restTestClient;
+
+    @LocalServerPort
+    private int port;
 
     @Test
-    void BasicInteraction(@Autowired RestClient restClient) {
-        var response = Objects.requireNonNull(restClient
-                        .post().uri(
-                                uriBuilder ->
-                                        uriBuilder.queryParam("message", "Hello there")
-                                                .build())).retrieve().toEntity(String.class);
-        assert response.getBody() != null;
+    void BasicInteraction() {
+        restTestClient.post().uri(uriBuilder ->
+                        uriBuilder.host("localhost").port(port)
+                                .path("/message")
+                                .queryParam("message", "Hello there")
+                                .build())
+                .exchange()
+                .expectBody(String.class);
     }
 
     @Test
-    void ImageInteraction(@Autowired RestClient restClient) {
-        var response = restClient
+    void ImageInteraction() {
+        restTestClient
                 .post().uri(
                         uriBuilder ->
-                                uriBuilder.queryParam("message","What do you think about this image?")
+                                uriBuilder.host("localhost").port(port)
+                                .path("/image").queryParam("message","What do you think about this image?")
                                         .queryParam("imagePath", "src/test/resources/TestImage.jpg")
-                                        .build()).retrieve().toEntity(String.class);
-        assert response.getBody() != null;
+                                        .build()).exchange().expectBody(String.class);
     }
 
     @Test
-    void AlarmInteraction(@Autowired RestClient restClient) {
-        var response = restClient
+    void AlarmInteraction() {
+        restTestClient
                 .post().uri(
                         uriBuilder ->
-                                uriBuilder.queryParam("message","Set an alarm for 7 AM tomorrow")
+                                uriBuilder.host("localhost").port(port).path("/message")
+                                        .queryParam("message","Set an alarm for 7 AM tomorrow")
                                         .build())
-                .retrieve()
-                .toEntity(String.class);
-        assert response.getBody() != null;
+                .exchange()
+                .expectBody(String.class);
     }
 
     @Test
     @Disabled("Audio needs more thinking")
-    void AudioInteraction(@Autowired RestClient restClient) {
-        var response = restClient
+    void AudioInteraction() {
+        restTestClient
                 .post().uri(
                         uriBuilder ->
-                                uriBuilder.queryParam("message","Process this audio file")
+                                uriBuilder.host("localhost").port(port).path("/audio")
+                                        .queryParam("message","Process this audio file")
                                         .queryParam("audioPath", "src/test/resources/test_audio.wav")
                                         .build())
-                .retrieve()
-                .toEntity(String.class);
-        assert response.getBody() != null;
+                .exchange()
+                .expectBody(String.class);
     }
 
 }
