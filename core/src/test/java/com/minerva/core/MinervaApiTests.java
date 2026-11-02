@@ -13,11 +13,12 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 
 import java.util.Objects;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureRestClient
+@AutoConfigureRestTestClient
 @Import(MinervaTestConfiguration.class)
 @Tag("ContinuousIntegration")
 public class MinervaApiTests {
