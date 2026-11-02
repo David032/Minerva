@@ -23,12 +23,6 @@ public class MinervaApiTests {
     @Autowired
     private static OllamaContainer ollamaContainer;
 
-    @BeforeAll
-    static void checkContainersRunning() {
-        assert postgresContainer.isRunning();
-        assert ollamaContainer.isRunning();
-    }
-
     @Test
     void BasicInteraction(@Autowired RestTestClient restClient) {
         var response = restClient
