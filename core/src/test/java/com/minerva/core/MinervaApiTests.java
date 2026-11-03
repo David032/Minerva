@@ -1,20 +1,20 @@
 package com.minerva.core;
 
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.web.client.RestClient;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
-
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import org.springframework.test.web.servlet.client.RestTestClient;
+import java.time.Duration;
 import java.util.Objects;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -28,11 +28,21 @@ public class MinervaApiTests {
     @Autowired
     private OllamaContainer ollamaContainer;
 
-    @Autowired
-    private RestTestClient restTestClient;
-
     @LocalServerPort
     private int port;
+
+    private RestTestClient restTestClient;
+
+
+    @BeforeEach
+    void configureRestTestClient() {
+        var requestFactory = new JdkClientHttpRequestFactory();
+        requestFactory.setReadTimeout(Duration.ofSeconds(900));
+
+        restTestClient = RestTestClient.bindToServer(requestFactory)
+                .baseUrl("http://localhost:" + port)
+                .build();
+    }
 
     @Test
     void BasicInteraction() {
