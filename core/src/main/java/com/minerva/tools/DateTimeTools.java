@@ -14,8 +14,8 @@ public class DateTimeTools {
     }
 
     @Tool(description = "Set a user alarm for the given time, provided in ISO-8601 format")
-    void setAlarm(String time) {
+    String setAlarm(String time) {
         LocalDateTime alarmTime = LocalDateTime.parse(time, DateTimeFormatter.ISO_DATE_TIME);
-        System.out.println("Alarm set for " + alarmTime);
+        return "Alarm set for " + alarmTime;
     }
 }

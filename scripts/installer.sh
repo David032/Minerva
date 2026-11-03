@@ -8,10 +8,7 @@ set -euo pipefail
 TARGET_DIR="${1:-./minerva-deploy}"
 RAW_BASE="https://raw.githubusercontent.com/David032/Minerva"
 PROD_FILE="prod-compose.yaml"
-INSTALL_SCRIPT_PATH="scripts/installAndServiceLiteRT.sh"
-INSTALL_SCRIPT_NAME="$(basename "$INSTALL_SCRIPT_PATH")"
 PROD_URL="${RAW_BASE}/refs/heads/master/${PROD_FILE}"
-INSTALL_URL="${RAW_BASE}/refs/heads/master/${INSTALL_SCRIPT_PATH}"
 
 echo "Target directory: $TARGET_DIR"
 
@@ -27,10 +24,6 @@ cd "$TARGET_DIR"
 
 echo "Downloading ${PROD_FILE} from ${PROD_URL}..."
 curl -fsSL "$PROD_URL" -o "$PROD_FILE" || { echo "Failed to download $PROD_FILE"; exit 1; }
-
-echo "Downloading ${INSTALL_SCRIPT_NAME} from ${INSTALL_URL}..."
-curl -fsSL "$INSTALL_URL" -o "$INSTALL_SCRIPT_NAME" || { echo "Failed to download $INSTALL_SCRIPT_NAME"; exit 1; }
-chmod +x "$INSTALL_SCRIPT_NAME"
 
 # Auto-generate a strong password (64 hex chars = 256 bits)
 if command -v openssl >/dev/null 2>&1; then
@@ -59,20 +52,6 @@ echo "Generated POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}"
 echo "Stored in: ${TARGET_DIR}/.env and ${TARGET_DIR}/db/password.txt (both permission 600)."
 echo
 
-# Run the install script (the script itself expects to be run as root; use sudo if needed)
-echo "About to run ${INSTALL_SCRIPT_NAME} (this may install packages and create a systemd service)."
-if [ "$EUID" -ne 0 ]; then
-  if command -v sudo >/dev/null 2>&1; then
-    echo "Running with sudo: sudo bash ./${INSTALL_SCRIPT_NAME}"
-    sudo bash "./${INSTALL_SCRIPT_NAME}"
-  else
-    echo "This step requires root privileges but sudo is not available. Re-run as root." >&2
-    exit 1
-  fi
-else
-  bash "./${INSTALL_SCRIPT_NAME}"
-fi
-
 # Start docker compose stack (attempt docker compose plugin first, fallback to docker-compose)
 if ! command -v docker >/dev/null 2>&1; then
   echo "Error: Docker is not installed or not in PATH. Install Docker and re-run to bring up the stack." >&2
@@ -98,5 +77,4 @@ $COMPOSE_CMD -f "${PWD}/${PROD_FILE}" ps
 
 echo "All done. The files are in: ${TARGET_DIR}"
 echo "prod-compose: ${PWD}/${PROD_FILE}"
-echo "install script: ${PWD}/${INSTALL_SCRIPT_NAME}"
 echo "If you need to view logs: ${COMPOSE_CMD} -f ${PWD}/${PROD_FILE} logs -f"
