@@ -1,0 +1,31 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: maven
+    directory: /core
+    schedule:
+      interval: daily
+
+  - package-ecosystem: uv
+    directory: /SimpleVoice
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /core
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /SimpleVoice
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
