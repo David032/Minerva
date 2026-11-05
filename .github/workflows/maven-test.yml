@@ -3,7 +3,9 @@ name: Maven Build & Test
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ "master" ]
+    branches:
+      - master
+      - dev
 
 defaults:
   run:
@@ -33,3 +35,19 @@ jobs:
 
     - name: Test project
       run: mvn -B -Dgroups=ContinuousIntegration test
+
+    - name: Upload Surefire XML reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: continuous-test-report
+        path: core/target/surefire-reports/*.xml
+        if-no-files-found: warn
+
+    - name: Publish test report to PR
+      if: always()
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      with:
+        files: core/target/surefire-reports/*.xml
+        check_name: CI/CD Results
+        comment_mode: always
