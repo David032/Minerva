@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f2">
+    <title>Minerva Chat</title>
+    <link rel="stylesheet" href="/chat.css">
+    <script src="/chat.js" defer></script>
+</head>
+<body>
+<main class="chat">
+    <header class="chat-header">
+        <div class="brand-mark" aria-hidden="true">M</div>
+        <div>
+            <h1>Minerva</h1>
+            <p>Your local assistant</p>
+        </div>
+    </header>
+
+    <section id="conversation" class="conversation" aria-label="Conversation" aria-live="polite">
+        <p class="welcome">What can I help you with?</p>
+    </section>
+
+    <form id="message-form" class="composer">
+        <label class="visually-hidden" for="message-input">Message Minerva</label>
+        <textarea id="message-input" name="message" rows="1" placeholder="Message Minerva..." required></textarea>
+        <button id="send-button" type="submit" aria-label="Send message">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 12 20 4l-5 16-3-7-8-1Zm8 1 4-5"></path>
+            </svg>
+        </button>
+    </form>
+    <p id="status" class="status" role="status"></p>
+</main>
+</body>
+</html>
