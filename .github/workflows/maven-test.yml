@@ -18,6 +18,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      issues: read
+      checks: write
+      pull-requests: write
 
     steps:
     - uses: actions/checkout@v4
