@@ -6,6 +6,7 @@ import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestC
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.web.client.RestClient;
@@ -46,13 +47,37 @@ public class MinervaApiTests {
 
     @Test
     void BasicInteraction() {
-        restTestClient.post().uri(uriBuilder ->
-                        uriBuilder.host("localhost").port(port)
-                                .path("/message")
-                                .queryParam("message", "Hello there")
-                                .build())
+        restTestClient.post().uri("/message")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("message=Hello+there")
                 .exchange()
+                .expectStatus().isOk()
                 .expectBody(String.class);
+    }
+
+    @Test
+    void ChatPageAndClientAssetsAreServed() {
+        restTestClient.get().uri("/")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> {
+                    Assertions.assertTrue(body.contains("What can I help you with?"));
+                    Assertions.assertTrue(body.contains("/chat.css"));
+                    Assertions.assertTrue(body.contains("/chat.js"));
+                });
+
+        restTestClient.get().uri("/chat.js")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> Assertions.assertTrue(body.contains("fetch(\"/message\"")));
+
+        restTestClient.get().uri("/chat.css")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> Assertions.assertTrue(body.contains(".message.user")));
     }
 
     @Test
