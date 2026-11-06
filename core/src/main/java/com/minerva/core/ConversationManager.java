@@ -144,12 +144,14 @@ public class ConversationManager {
         var pathToResource = new FileUrlResource(pathToFile);
 
         String finalRequest = request;
+        logger.info("Received image message: {}", finalRequest);
         String response = aiChatClient.prompt()
                 .user(u -> u.text(finalRequest)
                         .media(MimeTypeUtils.IMAGE_JPEG, pathToResource))
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();
+        logger.info("Responding to image message with: {}", response);
         return  response;
     }
 
