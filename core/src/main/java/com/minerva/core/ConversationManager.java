@@ -81,11 +81,14 @@ public class ConversationManager {
                 .addSkillsResource(resourceLoader.getResource("classpath:/skills"))
                 .build();
 
+        var LoggerAdvisor = new com.minerva.advisors.LoggerAdvisor();
+
         aiChatClient = builder
                 .defaultAdvisors(
                         sessionMemoryAdvisor,
                         longTermMemoryAdvisor,
-                        shortTermMemoryAdvisor
+                        shortTermMemoryAdvisor,
+                        LoggerAdvisor
                 )
                 .defaultSystem(p -> p.text(prompt)
                         .param(AgentEnvironment.ENVIRONMENT_INFO_KEY, AgentEnvironment.info())
@@ -120,7 +123,6 @@ public class ConversationManager {
             logger.warn("Null or empty message");
             return "";
         }
-        logger.info("Received message: {}", message);
         var response = aiChatClient
                 .prompt()
                 .tools(new DateTimeTools())
@@ -128,7 +130,6 @@ public class ConversationManager {
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();
-        logger.info("Responding with: {}", response);
         return response;
     }
 
@@ -138,14 +139,12 @@ public class ConversationManager {
         var pathToResource = new FileUrlResource(pathToFile);
 
         String finalRequest = request;
-        logger.info("Received image message: {}", finalRequest);
         String response = aiChatClient.prompt()
                 .user(u -> u.text(finalRequest)
                         .media(MimeTypeUtils.IMAGE_JPEG, pathToResource))
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();
-        logger.info("Responding to image message with: {}", response);
         return  response;
     }
 
