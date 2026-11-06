@@ -36,6 +36,9 @@ jobs:
     - name: Build project
       run: mvn -B -DskipTests package
 
+    - name: Run unit tests
+      run: mvn -B -Dgroups=Unit test
+
     - name: Test project
       run: mvn -B -Dgroups=ContinuousIntegration test
 

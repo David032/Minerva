@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit;
 
 public class OllamaConnector {
     private static OllamaConnector instance = null;
-    static RestClient ollamaClient;
-    static String baseUrl;
+    private final RestClient ollamaClient;
+    private final String baseUrl;
     final Logger logger = LoggerFactory.getLogger(OllamaConnector.class);
 
     /// <summary>
@@ -19,9 +19,12 @@ public class OllamaConnector {
     /// </summary>
     /// @param url The base URL of the Ollama API.
     OllamaConnector(String url) {
-        instance = this;
+        this(url, RestClient.builder());
+    }
+
+    OllamaConnector(String url, RestClient.Builder restClientBuilder) {
         baseUrl = url;
-        ollamaClient = RestClient.builder().baseUrl(url).build();
+        ollamaClient = restClientBuilder.baseUrl(url).build();
     }
 
     /// <summary>

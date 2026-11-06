@@ -13,9 +13,30 @@ import java.nio.file.Paths;
 public class FileManager {
     final Logger logger = LoggerFactory.getLogger(FileManager.class);
     private static FileManager single_instance = null;
+    private final Path minervaPath;
+    private final Path uploadPath;
+    private final Path skillsPath;
+    private final Path memoriesPath;
+    private final Path logsPath;
+
     private FileManager() {
         single_instance = this;
-        CreateDirectories();
+        String userHome = System.getProperty("user.home");
+        minervaPath = Paths.get(userHome, "MinervaOS");
+        uploadPath = minervaPath.resolve("uploads");
+        skillsPath = minervaPath.resolve("skills");
+        memoriesPath = minervaPath.resolve("memories");
+        logsPath = minervaPath.resolve("logs");
+        createDirectories(true);
+    }
+
+    FileManager(Path root) {
+        minervaPath = root;
+        uploadPath = root.resolve("uploads");
+        skillsPath = root.resolve("skills");
+        memoriesPath = root.resolve("memories");
+        logsPath = root.resolve("logs");
+        createDirectories(false);
     }
 
     /// <summary>
@@ -33,15 +54,12 @@ public class FileManager {
     /// Creates the necessary directories for the Minerva to function properly.
     /// </summary>
     public void CreateDirectories() {
-        String userHome = System.getProperty("user.home");
-        Path MinervaPath = Paths.get(userHome, "MinervaOS");
-        Path uploadPath = Paths.get(userHome, "MinervaOS","uploads");
-        Path skillsPath = Paths.get(userHome, "MinervaOS","skills");
-        Path memoriesPath = Paths.get(userHome, "MinervaOS","memories");
-        Path logsPath = Paths.get(userHome, "MinervaOS","logs");
+        createDirectories(true);
+    }
 
+    private void createDirectories(boolean publishSystemProperties) {
         try {
-            Files.createDirectories(MinervaPath);
+            Files.createDirectories(minervaPath);
             Files.createDirectories(uploadPath);
             Files.createDirectories(skillsPath);
             Files.createDirectories(memoriesPath);
@@ -51,15 +69,17 @@ public class FileManager {
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
-        System.setProperty("app.dir", MinervaPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.skills", skillsPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.memories", memoriesPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.logs", logsPath.toAbsolutePath().toString());
+        if (publishSystemProperties) {
+            System.setProperty("app.dir", minervaPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.skills", skillsPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.memories", memoriesPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.logs", logsPath.toAbsolutePath().toString());
+        }
     }
 
     public Path UploadFile(String fileName, MultipartFile content) throws IOException {
-        return Files.write(Path.of(System.getProperty("app.dir.uploads") + "/" + fileName), content.getBytes());
+        return Files.write(uploadPath.resolve(fileName), content.getBytes());
     }
 
     /// <summary>
@@ -67,7 +87,7 @@ public class FileManager {
     /// </summary>
     /// @param fileName The name of the file to delete.
     public void DeleteFile(String fileName) {
-        Path path = Paths.get(System.getProperty("app.dir.uploads") + "/" + fileName);
+        Path path = uploadPath.resolve(fileName);
         try {
             Files.delete(path);
         }  catch (IOException e) {
@@ -82,10 +102,10 @@ public class FileManager {
     /// @return The path to the specified directory.
     public String getDirectoryPath(Directory directory) {
         return switch (directory) {
-            case UPLOADS -> System.getProperty("app.dir.uploads");
-            case SKILLS -> System.getProperty("app.dir.skills");
-            case MEMORIES -> System.getProperty("app.dir.memories");
-            case LOGS -> System.getProperty("app.dir.logs");
+            case UPLOADS -> uploadPath.toAbsolutePath().toString();
+            case SKILLS -> skillsPath.toAbsolutePath().toString();
+            case MEMORIES -> memoriesPath.toAbsolutePath().toString();
+            case LOGS -> logsPath.toAbsolutePath().toString();
         };
     }
 

@@ -28,3 +28,7 @@ then brings up the docker-compose stack.
 * Clone the repo
 * Pull Submodules
 * Use the dev-compose file to spin up the core system, db, voice api & ollama
+
+# Testing
+From the `core` directory, run the Docker-free unit tests with `mvn -B -Dgroups=Unit test`.
+The container-backed integration tests use `mvn -B -Dgroups=ContinuousIntegration test`.
