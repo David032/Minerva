@@ -7,20 +7,14 @@ import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryReposito
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Fallback;
-import org.springframework.web.client.RestClient;
-
-import java.util.Dictionary;
-import java.util.Hashtable;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 import static java.lang.IO.*;
 
 @SpringBootApplication()
 public class MinervaApplication {
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         var app = SpringApplication.run(MinervaApplication.class, args);
         var env = Objects.requireNonNull(app).getEnvironment();
         OllamaConnector.getInstance(env.getProperty("spring.ai.ollama.base-url"))

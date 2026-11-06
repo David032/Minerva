@@ -5,20 +5,38 @@ import org.springframework.ai.tool.annotation.Tool;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Locale;
+import java.util.function.BooleanSupplier;
 
 public class vcgencmdTools {
+    private final BooleanSupplier notRaspberryPi;
+    private final BooleanSupplier raspberryPi5;
+    private final CommandRunner commandRunner;
+
+    public vcgencmdTools() {
+        this(vcgencmdTools::isNotRaspberryPi,
+                () -> "True".equals(System.getenv("IS_PI_5")),
+                vcgencmdTools::runCommand);
+    }
+
+    vcgencmdTools(BooleanSupplier notRaspberryPi, CommandRunner commandRunner) {
+        this(notRaspberryPi, () -> "True".equals(System.getenv("IS_PI_5")), commandRunner);
+    }
+
+    vcgencmdTools(BooleanSupplier notRaspberryPi, BooleanSupplier raspberryPi5, CommandRunner commandRunner) {
+        this.notRaspberryPi = notRaspberryPi;
+        this.raspberryPi5 = raspberryPi5;
+        this.commandRunner = commandRunner;
+    }
 
     @Tool(description = "Get the current temperature of the CPU")
     String getTemperature() {
-        if (isNotRaspberryPi()) {
+        if (notRaspberryPi.getAsBoolean()) {
             return "This tool is only available on Raspberry Pi devices.";
         }
 
         try {
-            String[] command = {"/bin/sh", "-c", "vcgencmd measure_temp"};
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
-            String line = reader.readLine();
+            String line = commandRunner.run("vcgencmd measure_temp");
             if (line != null && line.startsWith("temp=")) {
                 return line.substring(5); // Extract the temperature value
             } else {
@@ -31,18 +49,15 @@ public class vcgencmdTools {
 
     @Tool(description = "Get the current CPU frequency")
     String getCPUFrequency() {
-        if (isNotRaspberryPi()) {
+        if (notRaspberryPi.getAsBoolean()) {
             return "This tool is only available on Raspberry Pi devices.";
         }
 
         try {
-            String[] command = {"/bin/sh", "-c", "vcgencmd measure_clock arm"};
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
-            String line = reader.readLine();
+            String line = commandRunner.run("vcgencmd measure_clock arm");
             if (line != null && line.startsWith("frequency(")) {
                 var hz = line.substring(line.indexOf('=') + 1); // Extract the frequency value in Hz
-                return String.format("CPU Frequency: %s Hz (%.2f MHz)", hz, Double.parseDouble(hz) / 1_000_000);
+                return String.format(Locale.ROOT, "CPU Frequency: %s Hz (%.2f MHz)", hz, Double.parseDouble(hz) / 1_000_000);
             } else {
                 return "Unable to read clock frequency.";
             }
@@ -53,18 +68,15 @@ public class vcgencmdTools {
 
     @Tool(description = "Get the current GPU frequency")
     String getGpuFrequency() {
-        if (isNotRaspberryPi()) {
+        if (notRaspberryPi.getAsBoolean()) {
             return "This tool is only available on Raspberry Pi devices.";
         }
 
         try {
-            String[] command = {"/bin/sh", "-c", "vcgencmd measure_clock core"};
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
-            String line = reader.readLine();
+            String line = commandRunner.run("vcgencmd measure_clock core");
             if (line != null && line.startsWith("frequency(")) {
                 var hz = line.substring(line.indexOf('=') + 1); // Extract the frequency value in Hz
-                return String.format("GPU Frequency: %s Hz (%.2f MHz)", hz, Double.parseDouble(hz) / 1_000_000);
+                return String.format(Locale.ROOT, "GPU Frequency: %s Hz (%.2f MHz)", hz, Double.parseDouble(hz) / 1_000_000);
             } else {
                 return "Unable to read clock frequency.";
             }
@@ -76,15 +88,12 @@ public class vcgencmdTools {
     @Tool(description = "Check if it is currently throttled, and if so, what the reason is")
     String getThrottledState(){
 
-        if (isNotRaspberryPi()) {
+        if (notRaspberryPi.getAsBoolean()) {
             return "This tool is only available on Raspberry Pi devices.";
         }
 
         try {
-            String[] command = {"/bin/sh", "-c", "vcgencmd get_throttled"};
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
-            String line = reader.readLine();
+            String line = commandRunner.run("vcgencmd get_throttled");
             if (line != null && line.startsWith("throttled=")) {
                 var state = line.substring(10);
                 return switch (state) {
@@ -108,19 +117,15 @@ public class vcgencmdTools {
 
     @Tool(description = "Get the current power supply state")
     String getPowerSupplyState(){
-        if (isNotRaspberryPi()) {
+        if (notRaspberryPi.getAsBoolean()) {
             return "This tool is only available on Raspberry Pi devices.";
         }
-        String targetPlatform = System.getenv("IS_PI_5");
-        if (targetPlatform == null || !targetPlatform.equals("True")) {
+        if (!raspberryPi5.getAsBoolean()) {
             return "This tool is only available on Raspberry Pi 5 devices.";
         }
 
         try {
-            String[] command = {"/bin/sh", "-c", "vcgencmd pmic_read_adc EXT5V_V"};
-            Process process = Runtime.getRuntime().exec(command);
-            BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream()));
-            String line = reader.readLine();
+            String line = commandRunner.run("vcgencmd pmic_read_adc EXT5V_V");
             if (line != null && line.startsWith("EXT5V_V=")) {
                 return "Power supply state: " + line.substring(8);
             } else {
@@ -129,6 +134,19 @@ public class vcgencmdTools {
         } catch (IOException e) {
             return "Error executing vcgencmd: " + e.getMessage();
         }
+    }
+
+    private static String runCommand(String command) throws IOException {
+        String[] shellCommand = {"/bin/sh", "-c", command};
+        Process process = Runtime.getRuntime().exec(shellCommand);
+        try (BufferedReader reader = new BufferedReader(new java.io.InputStreamReader(process.getInputStream()))) {
+            return reader.readLine();
+        }
+    }
+
+    @FunctionalInterface
+    interface CommandRunner {
+        String run(String command) throws IOException;
     }
 
     private static boolean isNotRaspberryPi() {
