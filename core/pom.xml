@@ -29,7 +29,7 @@
     <properties>
         <java.version>26</java.version>
         <spring-ai.version>2.0.1</spring-ai.version>
-        <testcontainers.version>2.0.2</testcontainers.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
     <dependencies>
         <dependency>
