@@ -1,5 +1,7 @@
-package com.minerva.core;
+package com.minerva.tools;
 
+import com.minerva.core.ConversationManager;
+import com.minerva.core.MinervaTestConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;

@@ -3,54 +3,50 @@ package com.minerva.core;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
-import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.agent.advisors.AutoMemoryToolsAdvisor;
 import org.springaicommunity.agent.tools.*;
 import org.springaicommunity.agent.utils.AgentEnvironment;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.ResponseEntity;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
-import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.actuate.web.exchanges.HttpExchange;
 import org.springframework.core.io.*;
-import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.charset.Charset;
 
-import static java.lang.IO.print;
 
 public class ConversationManager {
-    private static ConversationManager single_instance = null;
     private static ChatClient aiChatClient;
     private static RestClient voiceClient;
     static final Logger logger = LoggerFactory.getLogger(ConversationManager.class);
 
+    /// <summary>
+    /// Initializes a new instance of the ConversationManager class.
+    /// </summary>
     private ConversationManager()
     {
-        single_instance = this;
         voiceClient = RestClient.builder().baseUrl(System.getenv().getOrDefault("VOICE_SERVICE_URL", "http://localhost:8000")).build();
     }
 
+    /// <summary>
+    /// Initializes the ConversationManager. This method sets up the AI chat client with the necessary advisors, tools, and system prompts.
+    /// </summary>
+    /// @param builder The ChatClient.Builder used to build the AI chat client.
+    /// @param sessionService The SessionService used for managing user sessions.
+    /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static void Initialize(ChatClient.Builder builder, SessionService sessionService) throws IOException {
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
         var pathToSkills = FileManager.getInstance().getDirectoryPath(Directory.SKILLS);
@@ -101,20 +97,22 @@ public class ConversationManager {
                 .build();
     }
 
+    /// <summary>
+    /// Builds the base prompt for the AI by combining multiple prompt files.
+    /// </summary>
+    /// @return The combined prompt as a string.
+    /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static String buildPrompt() throws IOException {
         ResourceLoader resourceLoader = new DefaultResourceLoader();
         return resourceLoader.getResource("classpath:/prompts/BASE_PROMPT.md").getContentAsString(Charset.defaultCharset()) +
                 resourceLoader.getResource("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md").getContentAsString(Charset.defaultCharset());
     }
 
-    public static synchronized ConversationManager getInstance()
-    {
-        if (single_instance == null)
-            single_instance = new ConversationManager();
-
-        return single_instance;
-    }
-
+    /// <summary>
+    /// Sends a message to the AI and returns the response.
+    /// </summary>
+    /// @param message The message to send to the AI.
+    /// @return The AI's response to the message.
     public static String sendMessage(String message) {
         if (message == null || message.isEmpty()){
             logger.warn("Null or empty message");
@@ -132,6 +130,13 @@ public class ConversationManager {
         return response;
     }
 
+    /// <summary>
+    /// Seeks an opinion on an image by sending it to the AI along with a user request.
+    /// </summary>
+    /// @param pathToFile The path to the image file to analyze.
+    /// @param request The user request or question regarding the image.
+    /// @return The AI's response to the image and request.
+    /// @throws MalformedURLException If the path to the image file is malformed.
     public static String seekImageOpinion(String pathToFile, String request) throws MalformedURLException {
         if (request == null) request = "Explain what do you see on this picture?";
 
@@ -149,13 +154,19 @@ public class ConversationManager {
         return  response;
     }
 
+    /// <summary>
+    /// Processes an audio file by converting it to text, generating a response, and converting the response back to audio.
+    /// </summary>
+    /// @param pathToFile The path to the audio file to process.
+    /// @return The processed audio file.
+    /// @throws IOException If an I/O error occurs during file processing.
     public static File audioProcessing(String pathToFile) throws IOException {
         //Convert audio file to text
         MultiValueMap<String, File> body = new LinkedMultiValueMap<>();
         var pathToResource = new FileUrlResource(pathToFile);
         body.add("file", pathToResource.getFile());
         var convertedText = voiceClient.post().uri("/speech").body(body).retrieve().body(String.class);
-        String response = "";
+        String response;
         //Process the text
         if  (convertedText != null) {
             response = aiChatClient.prompt()

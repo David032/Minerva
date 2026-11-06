@@ -13,12 +13,22 @@ public class OllamaConnector {
     static RestClient ollamaClient;
     static String baseUrl;
     final Logger logger = LoggerFactory.getLogger(OllamaConnector.class);
+
+    /// <summary>
+    /// Initializes a new instance of the OllamaConnector class.
+    /// </summary>
+    /// @param url The base URL of the Ollama API.
     OllamaConnector(String url) {
         instance = this;
         baseUrl = url;
         ollamaClient = RestClient.builder().baseUrl(url).build();
     }
 
+    /// <summary>
+    /// Gets the singleton instance of the OllamaConnector class.
+    /// </summary>
+    /// @param url The base URL of the Ollama API.
+    /// @return The singleton instance of the OllamaConnector class.
     public static synchronized OllamaConnector getInstance(String url) {
         if (instance == null){
             instance = new OllamaConnector(url);
@@ -26,6 +36,11 @@ public class OllamaConnector {
         return instance;
     }
 
+    /// <summary>
+    /// Connects to the Ollama API and pulls the specified model if it is not already present.
+    /// </summary>
+    /// @param url The base URL of the Ollama API.
+    /// @param aimodel The name of the model to pull from the Ollama API.
     public void connectToOllama(String url, String aimodel){
         //Check to see if model is already present
         var initialCheck = ollamaClient.get().uri(url + "/api/tags").retrieve().toEntity(String.class);
@@ -61,6 +76,11 @@ public class OllamaConnector {
         }
     }
 
+    /// <summary>
+    /// Checks if the specified model is present in Ollama
+    /// </summary>
+    /// @param model The name of the model to check for.
+    /// @return True if the model is present, false otherwise.
     public boolean checkForModel(String model) {
         var checkModel = ollamaClient.get().uri(baseUrl + "/api/tags").retrieve().toEntity(String.class);
         assert checkModel.getBody() != null;

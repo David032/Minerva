@@ -13,18 +13,25 @@ import java.nio.file.Paths;
 public class FileManager {
     final Logger logger = LoggerFactory.getLogger(FileManager.class);
     private static FileManager single_instance = null;
-    private FileManager() throws IOException {
+    private FileManager() {
         single_instance = this;
         CreateDirectories();
     }
 
-    public static synchronized FileManager getInstance() throws IOException {
+    /// <summary>
+    /// Gets the singleton instance of the FileManager class.
+    /// </summary>
+    /// @return The singleton instance of the FileManager class.
+    public static synchronized FileManager getInstance() {
         if (single_instance == null)
             single_instance = new FileManager();
 
         return single_instance;
     }
 
+    /// <summary>
+    /// Creates the necessary directories for the Minerva to function properly.
+    /// </summary>
     public void CreateDirectories() {
         String userHome = System.getProperty("user.home");
         Path MinervaPath = Paths.get(userHome, "MinervaOS");
@@ -55,6 +62,10 @@ public class FileManager {
         return Files.write(Path.of(System.getProperty("app.dir.uploads") + "/" + fileName), content.getBytes());
     }
 
+    /// <summary>
+    /// Deletes a file from the uploads directory.
+    /// </summary>
+    /// @param fileName The name of the file to delete.
     public void DeleteFile(String fileName) {
         Path path = Paths.get(System.getProperty("app.dir.uploads") + "/" + fileName);
         try {
@@ -64,16 +75,25 @@ public class FileManager {
         }
     }
 
+    /// <summary>
+    /// Gets the path to a specific directory.
+    /// </summary>
+    /// @param directory The directory to get the path for.
+    /// @return The path to the specified directory.
     public String getDirectoryPath(Directory directory) {
         return switch (directory) {
             case UPLOADS -> System.getProperty("app.dir.uploads");
             case SKILLS -> System.getProperty("app.dir.skills");
             case MEMORIES -> System.getProperty("app.dir.memories");
             case LOGS -> System.getProperty("app.dir.logs");
-            default -> System.getProperty("app.dir");
         };
     }
 
+    /// <summary>
+    /// Gets a file from the specified path.
+    /// </summary>
+    /// @param pathToFile The path to the file to get.
+    /// @return The file at the specified path.
     public File GetFile(Path pathToFile) {
         return pathToFile.toFile();
     }
