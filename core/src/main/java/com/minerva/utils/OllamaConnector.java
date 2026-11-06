@@ -12,7 +12,7 @@ public class OllamaConnector {
     private static OllamaConnector instance = null;
     static RestClient ollamaClient;
     static String baseUrl;
-    Logger logger = LoggerFactory.getLogger(OllamaConnector.class);
+    final Logger logger = LoggerFactory.getLogger(OllamaConnector.class);
     OllamaConnector(String url) {
         instance = this;
         baseUrl = url;

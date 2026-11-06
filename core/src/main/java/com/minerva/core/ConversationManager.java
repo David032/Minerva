@@ -43,7 +43,7 @@ public class ConversationManager {
     private static ConversationManager single_instance = null;
     private static ChatClient aiChatClient;
     private static RestClient voiceClient;
-    static Logger logger = LoggerFactory.getLogger(ConversationManager.class);
+    static final Logger logger = LoggerFactory.getLogger(ConversationManager.class);
 
     private ConversationManager()
     {

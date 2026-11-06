@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class FileManager {
-    Logger logger = LoggerFactory.getLogger(FileManager.class);
+    final Logger logger = LoggerFactory.getLogger(FileManager.class);
     private static FileManager single_instance = null;
     private FileManager() throws IOException {
         single_instance = this;
@@ -25,7 +25,7 @@ public class FileManager {
         return single_instance;
     }
 
-    public void CreateDirectories() throws IOException {
+    public void CreateDirectories() {
         String userHome = System.getProperty("user.home");
         Path MinervaPath = Paths.get(userHome, "MinervaOS");
         Path uploadPath = Paths.get(userHome, "MinervaOS","uploads");
@@ -55,7 +55,7 @@ public class FileManager {
         return Files.write(Path.of(System.getProperty("app.dir.uploads") + "/" + fileName), content.getBytes());
     }
 
-    public void DeleteFile(String fileName) throws IOException {
+    public void DeleteFile(String fileName) {
         Path path = Paths.get(System.getProperty("app.dir.uploads") + "/" + fileName);
         try {
             Files.delete(path);
@@ -74,7 +74,7 @@ public class FileManager {
         };
     }
 
-    public File GetFile(Path pathToFile) throws IOException {
+    public File GetFile(Path pathToFile) {
         return pathToFile.toFile();
     }
 }

@@ -20,7 +20,7 @@ import static java.lang.IO.*;
 @SpringBootApplication()
 public class MinervaApplication {
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         var app = SpringApplication.run(MinervaApplication.class, args);
         var env = Objects.requireNonNull(app).getEnvironment();
         OllamaConnector.getInstance(env.getProperty("spring.ai.ollama.base-url"))

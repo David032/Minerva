@@ -20,12 +20,10 @@ public class MinervaTestConfiguration {
     @Bean
     @ServiceConnection
     PostgreSQLContainer postgresContainer() {
-        var postgresqlContainer = new PostgreSQLContainer("postgres:17-alpine")
+        return new PostgreSQLContainer("postgres:17-alpine")
                 .withDatabaseName("postgres")
                 .withUsername("postgres")
                 .withPassword("ThingExplainer");
-
-        return postgresqlContainer;
     }
 
     @Bean
