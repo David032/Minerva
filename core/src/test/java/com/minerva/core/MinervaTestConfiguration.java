@@ -5,9 +5,6 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
@@ -20,12 +17,10 @@ public class MinervaTestConfiguration {
     @Bean
     @ServiceConnection
     PostgreSQLContainer postgresContainer() {
-        var postgresqlContainer = new PostgreSQLContainer("postgres:17-alpine")
+        return new PostgreSQLContainer("postgres:17-alpine")
                 .withDatabaseName("postgres")
                 .withUsername("postgres")
                 .withPassword("ThingExplainer");
-
-        return postgresqlContainer;
     }
 
     @Bean

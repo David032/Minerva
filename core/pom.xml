@@ -5,12 +5,12 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.2</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.minerva</groupId>
     <artifactId>Minerva</artifactId>
-    <version>0.3-SNAPSHOT</version>
+    <version>0.4-SNAPSHOT</version>
     <name>Minerva</name>
     <description>Minerva</description>
     <url/>
@@ -28,8 +28,8 @@
     </scm>
     <properties>
         <java.version>26</java.version>
-        <spring-ai.version>2.0.1</spring-ai.version>
-        <testcontainers.version>2.0.2</testcontainers.version>
+        <spring-ai.version>2.0.2</spring-ai.version>
+        <testcontainers.version>2.0.5</testcontainers.version>
     </properties>
     <dependencies>
         <dependency>
@@ -175,14 +175,14 @@
             <dependency>
                 <groupId>org.springaicommunity</groupId>
                 <artifactId>spring-ai-session-bom</artifactId>
-                <version>0.8.0</version>
+                <version>0.10.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>org.springaicommunity</groupId>
                 <artifactId>spring-ai-agent-utils-bom</artifactId>
-                <version>0.12.0</version>
+                <version>0.13.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

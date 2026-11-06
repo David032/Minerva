@@ -3,7 +3,9 @@ name: Maven Build & Test
 on:
   workflow_dispatch:
   pull_request:
-    branches: [ "master" ]
+    branches:
+      - master
+      - dev
 
 defaults:
   run:
@@ -16,11 +18,14 @@ jobs:
     permissions:
       contents: read
       packages: write
+      issues: read
+      checks: write
+      pull-requests: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Set up JDK 26
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@v6
       with:
         java-version: '26'
         distribution: 'temurin'
@@ -31,5 +36,24 @@ jobs:
     - name: Build project
       run: mvn -B -DskipTests package
 
+    - name: Run unit tests
+      run: mvn -B -Dgroups=Unit test
+
     - name: Test project
       run: mvn -B -Dgroups=ContinuousIntegration test
+
+    - name: Upload Surefire XML reports
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: continuous-test-report
+        path: core/target/surefire-reports/*.xml
+        if-no-files-found: warn
+
+    - name: Publish test report to PR
+      if: always()
+      uses: EnricoMi/publish-unit-test-result-action@v2
+      with:
+        files: core/target/surefire-reports/*.xml
+        check_name: CI/CD Results
+        comment_mode: always

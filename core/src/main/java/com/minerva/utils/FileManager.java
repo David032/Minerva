@@ -11,30 +11,55 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class FileManager {
-    Logger logger = LoggerFactory.getLogger(FileManager.class);
+    final Logger logger = LoggerFactory.getLogger(FileManager.class);
     private static FileManager single_instance = null;
-    private FileManager() throws IOException {
+    private final Path minervaPath;
+    private final Path uploadPath;
+    private final Path skillsPath;
+    private final Path memoriesPath;
+    private final Path logsPath;
+
+    private FileManager() {
         single_instance = this;
-        CreateDirectories();
+        String userHome = System.getProperty("user.home");
+        minervaPath = Paths.get(userHome, "MinervaOS");
+        uploadPath = minervaPath.resolve("uploads");
+        skillsPath = minervaPath.resolve("skills");
+        memoriesPath = minervaPath.resolve("memories");
+        logsPath = minervaPath.resolve("logs");
+        createDirectories(true);
     }
 
-    public static synchronized FileManager getInstance() throws IOException {
+    FileManager(Path root) {
+        minervaPath = root;
+        uploadPath = root.resolve("uploads");
+        skillsPath = root.resolve("skills");
+        memoriesPath = root.resolve("memories");
+        logsPath = root.resolve("logs");
+        createDirectories(false);
+    }
+
+    /// <summary>
+    /// Gets the singleton instance of the FileManager class.
+    /// </summary>
+    /// @return The singleton instance of the FileManager class.
+    public static synchronized FileManager getInstance() {
         if (single_instance == null)
             single_instance = new FileManager();
 
         return single_instance;
     }
 
-    public void CreateDirectories() throws IOException {
-        String userHome = System.getProperty("user.home");
-        Path MinervaPath = Paths.get(userHome, "MinervaOS");
-        Path uploadPath = Paths.get(userHome, "MinervaOS","uploads");
-        Path skillsPath = Paths.get(userHome, "MinervaOS","skills");
-        Path memoriesPath = Paths.get(userHome, "MinervaOS","memories");
-        Path logsPath = Paths.get(userHome, "MinervaOS","logs");
+    /// <summary>
+    /// Creates the necessary directories for the Minerva to function properly.
+    /// </summary>
+    public void CreateDirectories() {
+        createDirectories(true);
+    }
 
+    private void createDirectories(boolean publishSystemProperties) {
         try {
-            Files.createDirectories(MinervaPath);
+            Files.createDirectories(minervaPath);
             Files.createDirectories(uploadPath);
             Files.createDirectories(skillsPath);
             Files.createDirectories(memoriesPath);
@@ -44,19 +69,25 @@ public class FileManager {
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
-        System.setProperty("app.dir", MinervaPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.skills", skillsPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.memories", memoriesPath.toAbsolutePath().toString());
-        System.setProperty("app.dir.logs", logsPath.toAbsolutePath().toString());
+        if (publishSystemProperties) {
+            System.setProperty("app.dir", minervaPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.skills", skillsPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.memories", memoriesPath.toAbsolutePath().toString());
+            System.setProperty("app.dir.logs", logsPath.toAbsolutePath().toString());
+        }
     }
 
     public Path UploadFile(String fileName, MultipartFile content) throws IOException {
-        return Files.write(Path.of(System.getProperty("app.dir.uploads") + "/" + fileName), content.getBytes());
+        return Files.write(uploadPath.resolve(fileName), content.getBytes());
     }
 
-    public void DeleteFile(String fileName) throws IOException {
-        Path path = Paths.get(System.getProperty("app.dir.uploads") + "/" + fileName);
+    /// <summary>
+    /// Deletes a file from the uploads directory.
+    /// </summary>
+    /// @param fileName The name of the file to delete.
+    public void DeleteFile(String fileName) {
+        Path path = uploadPath.resolve(fileName);
         try {
             Files.delete(path);
         }  catch (IOException e) {
@@ -64,17 +95,26 @@ public class FileManager {
         }
     }
 
+    /// <summary>
+    /// Gets the path to a specific directory.
+    /// </summary>
+    /// @param directory The directory to get the path for.
+    /// @return The path to the specified directory.
     public String getDirectoryPath(Directory directory) {
         return switch (directory) {
-            case UPLOADS -> System.getProperty("app.dir.uploads");
-            case SKILLS -> System.getProperty("app.dir.skills");
-            case MEMORIES -> System.getProperty("app.dir.memories");
-            case LOGS -> System.getProperty("app.dir.logs");
-            default -> System.getProperty("app.dir");
+            case UPLOADS -> uploadPath.toAbsolutePath().toString();
+            case SKILLS -> skillsPath.toAbsolutePath().toString();
+            case MEMORIES -> memoriesPath.toAbsolutePath().toString();
+            case LOGS -> logsPath.toAbsolutePath().toString();
         };
     }
 
-    public File GetFile(Path pathToFile) throws IOException {
+    /// <summary>
+    /// Gets a file from the specified path.
+    /// </summary>
+    /// @param pathToFile The path to the file to get.
+    /// @return The file at the specified path.
+    public File GetFile(Path pathToFile) {
         return pathToFile.toFile();
     }
 }
