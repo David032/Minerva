@@ -162,6 +162,10 @@
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-tool-search-advisor</artifactId>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
