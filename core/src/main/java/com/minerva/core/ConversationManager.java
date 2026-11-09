@@ -100,11 +100,7 @@ public class ConversationManager {
                         GlobTool.builder().build(),
                         memoryTools,
                         skillsSystem,
-                        webSearch,
-                        SmartWebFetchTool.builder(aiChatClient)
-                                .domainSafetyCheck(false)  // Disable for internal docs
-                                .maxRetries(3)             // More retries for reliability
-                                .build())
+                        webSearch)
                 .build();
     }
 
