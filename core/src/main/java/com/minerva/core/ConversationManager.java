@@ -80,8 +80,6 @@ public class ConversationManager {
 
         var LoggerAdvisor = new com.minerva.advisors.LoggerAdvisor();
 
-        var webSearch = BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
-
         aiChatClient = builder
                 .defaultAdvisors(
                         sessionMemoryAdvisor,
@@ -99,9 +97,13 @@ public class ConversationManager {
                         GrepTool.builder().build(),
                         GlobTool.builder().build(),
                         memoryTools,
-                        skillsSystem,
-                        webSearch)
+                        skillsSystem)
                 .build();
+
+        if (System.getenv("BRAVE_API_KEY") != null) {
+            var webSearch = BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
+            aiChatClient = aiChatClient.mutate().defaultTools(webSearch).build();
+        }
     }
 
     /// <summary>
