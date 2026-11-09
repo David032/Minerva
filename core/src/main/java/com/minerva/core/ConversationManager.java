@@ -81,7 +81,6 @@ public class ConversationManager {
         var LoggerAdvisor = new com.minerva.advisors.LoggerAdvisor();
 
         var webSearch = BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
-        var webFetch = SmartWebFetchTool.builder(aiChatClient).domainSafetyCheck(false).maxRetries(3).build();
 
         aiChatClient = builder
                 .defaultAdvisors(
@@ -102,7 +101,10 @@ public class ConversationManager {
                         memoryTools,
                         skillsSystem,
                         webSearch,
-                        webFetch)
+                        SmartWebFetchTool.builder(aiChatClient)
+                                .domainSafetyCheck(false)  // Disable for internal docs
+                                .maxRetries(3)             // More retries for reliability
+                                .build())
                 .build();
     }
 
