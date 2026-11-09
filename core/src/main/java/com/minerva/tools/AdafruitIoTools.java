@@ -26,7 +26,11 @@ public class AdafruitIoTools {
         if (!hasIoKey()){
             enabled = false;
         }
-        this.ioClient = RestClient.builder().defaultHeader("X-AIO-Key", ioKey).build();
+        RestClient.Builder clientBuilder = ioClient.mutate();
+        if (ioKey != null) {
+            clientBuilder.defaultHeader("X-AIO-Key", ioKey);
+        }
+        this.ioClient = clientBuilder.build();
     }
 
     /// <summary>
@@ -62,7 +66,7 @@ public class AdafruitIoTools {
         if (enabled) {
             if (canConnect()){
                 AdafruitIOData response = ioClient.get()
-                        .uri(baseUrl + "/api/v2/" + ioUsername + "/feeds/ + " + feedKey + "/data?limit=1").retrieve().body(AdafruitIOData.class);
+                        .uri(baseUrl + "/api/v2/" + ioUsername + "/feeds/" + feedKey + "/data?limit=1").retrieve().body(AdafruitIOData.class);
                 assert response != null;
                 return response.getValue();
             }
