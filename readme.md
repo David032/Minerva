@@ -15,6 +15,7 @@ and is *intended* to be a personal assistant that can be used for a variety of t
 * POSTGRES_PASSWORD - Required
 * IO-KEY - Optional, for AdafruitIO integration
 * IO-USERNAME - Optional, for AdafruitIO integration
+* BRAVE_API_KEY - Optional, for Web searching
 
 # Related projects
 * BraincraftHMI - A simple server wrapper for Adafruit's Braincraft Hat. Minerva *will* have an integrated advisor that outputs to the Braincraft Hat's display; the HMI side will be able to send data to Minerva.
