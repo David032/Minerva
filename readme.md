@@ -11,6 +11,11 @@ and is *intended* to be a personal assistant that can be used for a variety of t
 # Installation Requirements
 * Docker
 
+## .env values
+* POSTGRES_PASSWORD - Required
+* IO-KEY - Optional, for AdafruitIO integration
+* IO-USERNAME - Optional, for AdafruitIO integration
+
 # Related projects
 * BraincraftHMI - A simple server wrapper for Adafruit's Braincraft Hat. Minerva *will* have an integrated advisor that outputs to the Braincraft Hat's display; the HMI side will be able to send data to Minerva.
 
