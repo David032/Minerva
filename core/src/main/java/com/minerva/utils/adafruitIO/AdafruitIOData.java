@@ -40,5 +40,9 @@ public class AdafruitIOData {
     public static class Location {
         // Add specific location fields if they become known
     }
+
+    public String getValue() {
+        return value;
+    }
 }
 

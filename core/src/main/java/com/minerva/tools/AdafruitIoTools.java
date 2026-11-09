@@ -1,15 +1,14 @@
 package com.minerva.tools;
 
 import com.minerva.utils.adafruitIO.AdafruitIOData;
-import com.rometools.rome.feed.atom.Feed;
 import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.http.HttpStatusCode;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 public class AdafruitIoTools {
@@ -65,10 +64,9 @@ public class AdafruitIoTools {
     String getLatestValueFromFeed(String feedKey) throws IOException {
         if (enabled) {
             if (canConnect()){
-                AdafruitIOData response = ioClient.get()
-                        .uri(baseUrl + "/api/v2/" + ioUsername + "/feeds/" + feedKey + "/data?limit=1").retrieve().body(AdafruitIOData.class);
-                assert response != null;
-                return response.getValue();
+                List<AdafruitIOData>response = Collections.singletonList(ioClient.get()
+                        .uri(baseUrl + "/api/v2/" + ioUsername + "/feeds/" + feedKey + "/data?limit=1").retrieve().body(AdafruitIOData.class));
+                return response.getFirst().getValue();
             }
             return "Failed! Cannot connect to Adafruit.com";
         } else {
