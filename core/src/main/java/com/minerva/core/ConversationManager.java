@@ -15,6 +15,7 @@ import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MimeTypeUtils;
@@ -79,6 +80,9 @@ public class ConversationManager {
 
         var LoggerAdvisor = new com.minerva.advisors.LoggerAdvisor();
 
+        var webSearch = BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
+        var webFetch = SmartWebFetchTool.builder(aiChatClient).domainSafetyCheck(false).maxRetries(3).build();
+
         aiChatClient = builder
                 .defaultAdvisors(
                         sessionMemoryAdvisor,
@@ -96,7 +100,9 @@ public class ConversationManager {
                         GrepTool.builder().build(),
                         GlobTool.builder().build(),
                         memoryTools,
-                        skillsSystem)
+                        skillsSystem,
+                        webSearch,
+                        webFetch)
                 .build();
     }
 
