@@ -16,6 +16,7 @@ services:
       IS_PI_5: True #Assumes that a production deployment is running on a Raspberry Pi 5. If not, set this to False.
       IO_KEY: ${IO_KEY:?Set IO_KEY in .env}
       IO_USERNAME: ${IO_KEY:?Set IO_USERNAME in .env}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:? Set BRAVE_API_KEY in .env}
     volumes:
       - core-tmp:/tmp
       - core-data:/home

@@ -15,6 +15,7 @@ import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MimeTypeUtils;
@@ -98,6 +99,11 @@ public class ConversationManager {
                         memoryTools,
                         skillsSystem)
                 .build();
+
+        if (System.getenv("BRAVE_API_KEY") != null) {
+            var webSearch = BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
+            aiChatClient = aiChatClient.mutate().defaultTools(webSearch).build();
+        }
     }
 
     /// <summary>

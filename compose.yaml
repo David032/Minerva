@@ -17,6 +17,7 @@ services:
       IS_PI_5: False
       IO_KEY: ${IO_KEY:?Set IO_KEY in .env}
       IO_USERNAME: ${IO_KEY:?Set IO_USERNAME in .env}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:? Set BRAVE_API_KEY in .env}
     volumes:
       - core-tmp:/tmp
       - core-data:/home
@@ -33,6 +34,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 45s
+    env_file:
+      - path: .env
+        required: false
+
 
   ollama:
     image: ollama/ollama:latest
