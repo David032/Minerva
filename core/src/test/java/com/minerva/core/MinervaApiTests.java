@@ -117,4 +117,21 @@ public class MinervaApiTests {
                 .expectBody(String.class);
     }
 
+    @Test
+    void RssInteraction() {
+        restTestClient.post().uri(uriBuilder -> uriBuilder.host("localhost").port(port).path("/AddRssFeed")
+                                        .queryParam("title","BBC News").queryParam("url","https://feeds.bbci.co.uk/news/uk/rss.xml")
+                                        .build())
+                .exchange()
+                .expectStatus().isOk();
+
+        restTestClient.post().uri("/message")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body("message=What+are+the+current+BBC+news+headlines?")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class);
+
+    }
+
 }

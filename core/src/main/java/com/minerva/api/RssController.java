@@ -25,7 +25,7 @@ public class RssController {
         this.fileManager = fileManager;
     }
 
-    @PostMapping
+    @PostMapping()
     void addRssFeed(@RequestParam String title, @RequestParam String url) throws IOException {
         var feedToAdd = new RssData();
         feedToAdd.setTitle(title);
