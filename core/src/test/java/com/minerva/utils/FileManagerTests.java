@@ -90,6 +90,9 @@ class FileManagerTests {
         manager.AddToRssFeeds(secondFeed);
 
         assertEquals(2, manager.GetRssFeeds().size());
+        assertEquals(1, manager.GetRssFeedsByName("first feed").size());
+        assertEquals(2, manager.GetRssFeedsByName("feed").size());
+        assertTrue(manager.GetRssFeedsByName("missing").isEmpty());
 
         manager.DeleteRssFeedByName("First feed");
         assertEquals(1, manager.GetRssFeeds().size());

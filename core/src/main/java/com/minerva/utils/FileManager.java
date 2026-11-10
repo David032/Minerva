@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class FileManager {
     final Logger logger = LoggerFactory.getLogger(FileManager.class);
@@ -130,6 +131,18 @@ public class FileManager {
 
     public List<RssData> GetRssFeeds() throws IOException {
         return readRssFeeds();
+    }
+
+    public List<RssData> GetRssFeedsByName(String name) throws IOException {
+        if (name == null || name.isBlank()) {
+            return new ArrayList<>();
+        }
+
+        String searchName = name.toLowerCase(Locale.ROOT);
+        return readRssFeeds().stream()
+                .filter(feed -> feed.getTitle() != null
+                        && feed.getTitle().toLowerCase(Locale.ROOT).contains(searchName))
+                .toList();
     }
 
     public void DeleteRssFeedByName(String name) throws IOException {
