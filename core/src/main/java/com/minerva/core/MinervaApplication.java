@@ -1,5 +1,6 @@
 package com.minerva.core;
 
+import com.minerva.utils.FileManager;
 import com.minerva.utils.OllamaConnector;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -7,12 +8,14 @@ import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryReposito
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.IO.*;
 
 @SpringBootApplication()
+@ComponentScan(basePackages = {"com.minerva.core", "com.minerva.api"})
 public class MinervaApplication {
 
     static void main(String[] args) {
@@ -37,5 +40,10 @@ public class MinervaApplication {
         return MessageWindowChatMemory.builder()
                 .chatMemoryRepository(chatMemoryRepository)
                 .build();
+    }
+
+    @Bean
+    FileManager fileManager() {
+        return FileManager.getInstance();
     }
 }

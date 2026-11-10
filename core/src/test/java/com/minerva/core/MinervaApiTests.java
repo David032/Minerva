@@ -119,7 +119,7 @@ public class MinervaApiTests {
 
     @Test
     void RssInteraction() {
-        restTestClient.post().uri(uriBuilder -> uriBuilder.host("localhost").port(port).path("/AddRssFeed")
+        restTestClient.post().uri(uriBuilder -> uriBuilder.host("localhost").port(port).path("/rss/addRssFeed")
                                         .queryParam("title","BBC News").queryParam("url","https://feeds.bbci.co.uk/news/uk/rss.xml")
                                         .build())
                 .exchange()
