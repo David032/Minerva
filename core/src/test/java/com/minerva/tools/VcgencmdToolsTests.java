@@ -1,5 +1,7 @@
-package com.minerva.core;
+package com.minerva.tools;
 
+import com.minerva.core.ConversationManager;
+import com.minerva.core.MinervaTestConfiguration;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
@@ -9,7 +11,7 @@ import static org.hamcrest.Matchers.*;
 
 @Import(MinervaTestConfiguration.class)
 @SpringBootTest
-public class VcgencmdTests {
+public class VcgencmdToolsTests {
 
     @Test
     void testGetTemperature() {

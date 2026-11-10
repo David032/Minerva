@@ -1,5 +1,7 @@
 package com.minerva.utils;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.multipart.MultipartFile;
@@ -9,6 +11,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 public class FileManager {
     final Logger logger = LoggerFactory.getLogger(FileManager.class);
@@ -116,5 +121,66 @@ public class FileManager {
     /// @return The file at the specified path.
     public File GetFile(Path pathToFile) {
         return pathToFile.toFile();
+    }
+
+    public void AddToRssFeeds(RssData rssData) throws IOException {
+        List<RssData> rssDataList = readRssFeeds();
+        rssDataList.add(rssData);
+        writeRssFeeds(rssDataList);
+    }
+
+    public List<RssData> GetRssFeeds() throws IOException {
+        return readRssFeeds();
+    }
+
+    public List<RssData> GetRssFeedsByName(String name) throws IOException {
+        if (name == null || name.isBlank()) {
+            return new ArrayList<>();
+        }
+
+        String searchName = name.toLowerCase(Locale.ROOT);
+        return readRssFeeds().stream()
+                .filter(feed -> feed.getTitle() != null
+                        && feed.getTitle().toLowerCase(Locale.ROOT).contains(searchName))
+                .toList();
+    }
+
+    public void DeleteRssFeedByName(String name) throws IOException {
+        deleteRssFeeds(feed -> name.equals(feed.getTitle()));
+    }
+
+    public void DeleteRssFeedByUrl(String url) throws IOException {
+        deleteRssFeeds(feed -> url.equals(feed.getLink()));
+    }
+
+    private List<RssData> readRssFeeds() throws IOException {
+        Path feedsFile = memoriesPath.resolve("feeds.json");
+        if (Files.notExists(feedsFile)) {
+            return new ArrayList<>();
+        }
+
+        try (var reader = Files.newBufferedReader(feedsFile)) {
+            List<RssData> feeds = new Gson().fromJson(reader, new TypeToken<List<RssData>>() {}.getType());
+            return feeds == null ? new ArrayList<>() : feeds;
+        }
+    }
+
+    private void deleteRssFeeds(java.util.function.Predicate<RssData> predicate) throws IOException {
+        Path feedsFile = memoriesPath.resolve("feeds.json");
+        if (Files.notExists(feedsFile)) {
+            return;
+        }
+
+        List<RssData> feeds = readRssFeeds();
+        if (feeds.removeIf(predicate)) {
+            writeRssFeeds(feeds);
+        }
+    }
+
+    private void writeRssFeeds(List<RssData> feeds) throws IOException {
+        Path feedsFile = memoriesPath.resolve("feeds.json");
+        try (var writer = Files.newBufferedWriter(feedsFile)) {
+            new Gson().toJson(feeds, writer);
+        }
     }
 }

@@ -1,11 +1,11 @@
-package com.minerva.core;
+package com.minerva.api;
 
+import com.minerva.core.ConversationManager;
 import com.minerva.utils.FileManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.session.SessionService;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
