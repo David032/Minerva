@@ -1,4 +1,4 @@
-package com.minerva.core;
+package com.minerva.api;
 
 import com.minerva.utils.FileManager;
 import org.junit.jupiter.api.Tag;
