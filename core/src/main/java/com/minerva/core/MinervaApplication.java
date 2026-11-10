@@ -8,14 +8,12 @@ import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryReposito
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.IO.*;
 
-@SpringBootApplication()
-@ComponentScan(basePackages = {"com.minerva.core", "com.minerva.api"})
+@SpringBootApplication(scanBasePackages = {"com.minerva.core", "com.minerva.api"})
 public class MinervaApplication {
 
     static void main(String[] args) {
