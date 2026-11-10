@@ -25,7 +25,7 @@ public class RssController {
         this.fileManager = fileManager;
     }
 
-    @PostMapping()
+    @PostMapping(path = "/addRssFeed")
     void addRssFeed(@RequestParam String title, @RequestParam String url) throws IOException {
         var feedToAdd = new RssData();
         feedToAdd.setTitle(title);
@@ -33,22 +33,22 @@ public class RssController {
         fileManager.AddToRssFeeds(feedToAdd);
     }
 
-    @GetMapping(params = "!name")
+    @GetMapping(path = "/getFeeds", params = "!name")
     List<RssData> getRssFeeds() throws IOException {
         return fileManager.GetRssFeeds();
     }
 
-    @GetMapping(params = "name")
+    @GetMapping(path = "/getFeedByName", params = "name")
     List<RssData> getRssFeedByName(@RequestParam String name) throws IOException {
         return fileManager.GetRssFeedsByName(name);
     }
 
-    @DeleteMapping(params = "url")
+    @DeleteMapping(path = "/getFeedByUrl", params = "url")
     void DeleteRssFeedByUrl(@RequestParam String url) throws IOException {
         fileManager.DeleteRssFeedByUrl(url);
     }
 
-    @DeleteMapping(params = "name")
+    @DeleteMapping(path = "/deleteFeed", params = "name")
     void DeleteRssFeedByName(@RequestParam String name) throws IOException {
         fileManager.DeleteRssFeedByName(name);
     }

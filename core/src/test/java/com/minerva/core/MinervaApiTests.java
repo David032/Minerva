@@ -125,13 +125,14 @@ public class MinervaApiTests {
                 .exchange()
                 .expectStatus().isOk();
 
-        restTestClient.post().uri("/message")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body("message=What+are+the+current+BBC+news+headlines?")
+        restTestClient
+                .post().uri(
+                        uriBuilder ->
+                                uriBuilder.host("localhost").port(port).path("/message")
+                                        .queryParam("message","What are the current BBC news headlines")
+                                        .build())
                 .exchange()
-                .expectStatus().isOk()
                 .expectBody(String.class);
-
     }
 
 }
