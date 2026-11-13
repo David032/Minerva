@@ -81,6 +81,21 @@ public class MinervaApiTests {
     }
 
     @Test
+    void PersonalityPageIsRenderedWithThymeleaf() {
+        restTestClient.get().uri("/personality")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> {
+                    Assertions.assertTrue(body.contains("Shape Minerva&#39;s personality")
+                            || body.contains("Shape Minerva's personality"));
+                    Assertions.assertTrue(body.contains("multipart/form-data"));
+                    Assertions.assertTrue(body.contains("/personality/upload"));
+                    Assertions.assertTrue(body.contains("Personality prompt"));
+                });
+    }
+
+    @Test
     void ImageInteraction() {
         restTestClient
                 .post().uri(
