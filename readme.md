@@ -5,8 +5,12 @@ and is *intended* to be a personal assistant that can be used for a variety of t
 # Capabilities(W.i.P)
 * Short and long term memory
 * API based interface
-* 
+* Media-driven personality customization
 
+## Personality customization
+Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide a public image URL. Image comments and document guidance are optional; without an image comment, Minerva first asks what the image is about. Minerva stores interest tags and a separate personality prompt in its local `MinervaOS` data directory. HTML-referenced public images, GIFs, and videos are fetched with size and time limits; GIFs and sampled video frames are prepared for the local model. Private-network and localhost URLs are rejected.
+
+The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyze referenced videos.
 
 # Installation Requirements
 * Docker

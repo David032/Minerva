@@ -1,6 +1,7 @@
 package com.minerva.core;
 
 import com.minerva.tools.DateTimeTools;
+import com.minerva.core.personality.PersonalityPromptStore;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import org.springframework.ai.session.compaction.TurnCountTrigger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -113,8 +115,9 @@ public class ConversationManager {
     /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static String buildPrompt() throws IOException {
         ResourceLoader resourceLoader = new DefaultResourceLoader();
-        return resourceLoader.getResource("classpath:/prompts/BASE_PROMPT.md").getContentAsString(Charset.defaultCharset()) +
+        String basePrompt = resourceLoader.getResource("classpath:/prompts/BASE_PROMPT.md").getContentAsString(Charset.defaultCharset()) +
                 resourceLoader.getResource("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md").getContentAsString(Charset.defaultCharset());
+        return new PersonalityPromptStore(FileManager.getInstance()).composeWith(basePrompt);
     }
 
     /// <summary>
@@ -129,6 +132,7 @@ public class ConversationManager {
         }
         var response = aiChatClient
                 .prompt()
+                .system(system -> system.text(currentPrompt()))
                 .tools(new DateTimeTools())
                 .user(message)
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
@@ -145,6 +149,10 @@ public class ConversationManager {
     /// @return The AI's response to the image and request.
     /// @throws MalformedURLException If the path to the image file is malformed.
     public static String seekImageOpinion(String pathToFile, String request) throws MalformedURLException {
+        return seekImageOpinion(pathToFile, request, MimeTypeUtils.IMAGE_JPEG);
+    }
+
+    public static String seekImageOpinion(String pathToFile, String request, MimeType imageMimeType) throws MalformedURLException {
         if (request == null) request = "Explain what do you see on this picture?";
 
         var pathToResource = new FileUrlResource(pathToFile);
@@ -152,8 +160,9 @@ public class ConversationManager {
         String finalRequest = request;
         logger.info("Received image message: {}", finalRequest);
         String response = aiChatClient.prompt()
+                .system(system -> system.text(currentPrompt()))
                 .user(u -> u.text(finalRequest)
-                        .media(MimeTypeUtils.IMAGE_JPEG, pathToResource))
+                        .media(imageMimeType, pathToResource))
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();
@@ -177,6 +186,7 @@ public class ConversationManager {
         //Process the text
         if  (convertedText != null) {
             response = aiChatClient.prompt()
+                    .system(system -> system.text(currentPrompt()))
                     .user(u -> u.text(convertedText))
                     .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                     .call()
@@ -197,6 +207,14 @@ public class ConversationManager {
         var pathToAudio = FileManager.getInstance().UploadFile(responseAudio.getOriginalFilename(), responseAudio);
         //Return the audio
         return FileManager.getInstance().GetFile(pathToAudio);
+    }
+
+    private static String currentPrompt() {
+        try {
+            return buildPrompt();
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not load Minerva's system and personality prompts.", e);
+        }
     }
 
 }

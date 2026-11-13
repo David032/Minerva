@@ -114,6 +114,10 @@ public class FileManager {
         };
     }
 
+    public Path getPersonalityPromptPath() {
+        return minervaPath.resolve("personality.md");
+    }
+
     /// <summary>
     /// Gets a file from the specified path.
     /// </summary>
