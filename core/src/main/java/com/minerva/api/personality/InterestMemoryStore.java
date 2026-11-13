@@ -2,6 +2,7 @@ package com.minerva.api.personality;
 
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -22,6 +23,7 @@ public class InterestMemoryStore {
     private static final String END = "<!-- minerva-media-interests:end -->";
     private final Path path;
 
+    @Autowired
     public InterestMemoryStore(FileManager fileManager) {
         this(Path.of(fileManager.getDirectoryPath(Directory.MEMORIES)).resolve("memories.md"));
     }
