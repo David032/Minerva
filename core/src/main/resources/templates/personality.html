@@ -13,7 +13,7 @@
         <div>
             <p class="eyebrow">MINERVA · PERSONALIZATION</p>
             <h1>Shape Minerva's personality</h1>
-            <p class="intro">Share a PDF or HTML page and Minerva will learn from its content and your guidance.</p>
+            <p class="intro">Share a PDF, HTML page, or image so Minerva can learn from its content and your guidance.</p>
         </div>
         <a href="/">Back to chat</a>
     </header>
@@ -24,12 +24,19 @@
     <section class="card">
         <h2>Learn from media</h2>
         <form action="/personality/upload" method="post" enctype="multipart/form-data">
-            <label for="file">PDF or HTML file</label>
-            <input id="file" name="file" type="file" accept=".pdf,.html,.htm,application/pdf,text/html" required>
-            <label for="guidance">Optional guidance</label>
+            <label for="file">PDF, HTML, or image file</label>
+            <input id="file" name="file" type="file"
+                   accept=".pdf,.html,.htm,.jpg,.jpeg,.png,.gif,.webp,application/pdf,text/html,image/*">
+            <label for="imageUrl">Or link to an image</label>
+            <input id="imageUrl" name="imageUrl" type="url" maxlength="2048"
+                   placeholder="https://example.com/image.jpg">
+            <label for="comment">Optional image comment</label>
+            <textarea id="comment" name="comment" rows="2" maxlength="2000"
+                      placeholder="For example: I like the colors and composition."></textarea>
+            <label for="guidance">Optional PDF or HTML guidance</label>
             <textarea id="guidance" name="guidance" rows="3" maxlength="2000"
                       placeholder="For example: You like this style, but dislike the busy colors."></textarea>
-            <p class="hint">Files are processed locally. HTML scripts are not run; only eligible referenced images and videos are fetched.</p>
+            <p class="hint">Uploads are limited to 10 MB; each prepared image is limited to 5 MB. Choose a file or image link, not both. If you leave the image comment blank, Minerva will describe the image first. HTML scripts are not run; only eligible referenced media is fetched.</p>
             <button type="submit">Analyze and update personality</button>
         </form>
     </section>

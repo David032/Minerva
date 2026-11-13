@@ -41,6 +41,9 @@ public class MediaPreprocessor {
                 throw new IllegalArgumentException("This upload contains too many images or video frames to analyze at once.");
             }
             for (int i = previousSize; i < prepared.size(); i++) {
+                if (prepared.get(i).content().length > 5 * 1024 * 1024) {
+                    throw new IllegalArgumentException("A prepared image exceeds the 5 MB analysis limit.");
+                }
                 totalBytes += prepared.get(i).content().length;
             }
             if (totalBytes > MAX_MODEL_MEDIA_BYTES) {

@@ -28,22 +28,41 @@ public class PersonalityController {
     @PostMapping("/personality/upload")
     public String upload(
             @RequestParam(required = false) MultipartFile file,
+            @RequestParam(required = false) String imageUrl,
+            @RequestParam(defaultValue = "") String comment,
             @RequestParam(defaultValue = "") String guidance,
             Model model
     ) throws IOException {
         try {
-            if (guidance.length() > 2_000) {
+            if (guidance.length() > 2_000 || comment.length() > 2_000) {
                 throw new IllegalArgumentException("Guidance must be 2,000 characters or fewer.");
             }
-            var result = service.process(file, guidance);
+            if (imageUrl != null && imageUrl.length() > 2_048) {
+                throw new IllegalArgumentException("Image URLs must be 2,048 characters or fewer.");
+            }
+            boolean imageUpload = file != null && !file.isEmpty()
+                    && (file.getContentType() != null && file.getContentType().toLowerCase().startsWith("image/")
+                    || isImageFilename(file.getOriginalFilename()));
+            var result = (imageUrl != null && !imageUrl.isBlank()) || imageUpload
+                    ? service.processImage(file, imageUrl, comment)
+                    : service.process(file, guidance);
             model.addAttribute("success", "Analysis complete. Saved " + result.savedTagCount()
-                    + " interest tags and analyzed " + result.analyzedMediaCount() + " referenced media item(s).");
+                    + " interest tags and analyzed " + result.analyzedMediaCount() + " media item(s).");
             model.addAttribute("personalityPrompt", result.personalityPrompt());
         } catch (IllegalArgumentException | IOException e) {
             model.addAttribute("error", e.getMessage());
             model.addAttribute("personalityPrompt", service.loadPrompt());
         }
         return "personality";
+    }
+
+    private static boolean isImageFilename(String filename) {
+        if (filename == null) {
+            return false;
+        }
+        String lower = filename.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png")
+                || lower.endsWith(".gif") || lower.endsWith(".webp");
     }
 
     @PostMapping("/personality/prompt")

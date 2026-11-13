@@ -35,6 +35,13 @@ class MediaPersonalityWorkflowIntegrationTests {
             "731717751510581249.html",
             "806031500234620928.html"
     );
+    private static final List<ImageFixture> IMAGE_FIXTURES = List.of(
+            new ImageFixture("779224415611256832_0.jpg", "image/jpeg", "image/jpeg"),
+            new ImageFixture("774972759111532544_0.png", "image/png", "image/png"),
+            new ImageFixture("785559147821367296_0.webp", "image/webp", "image/webp"),
+            new ImageFixture("682436876519473152_0.gif", "image/gif", "image/png")
+    );
+    private static final String VIDEO_FIXTURE = "731543319053778944_0.mp4";
 
     @TempDir
     Path tempDirectory;
@@ -43,7 +50,13 @@ class MediaPersonalityWorkflowIntegrationTests {
     private PersonalityPromptStore promptStore;
     private InterestMemoryStore memoryStore;
     private MediaDocumentExtractor extractor;
+    private RemoteMediaFetcher fetcher;
+    private VideoFrameExtractor videoFrameExtractor;
+    private PersonalityAnalyzer analyzer;
+    private PersonalityImageOpinionService imageOpinionService;
     private List<java.net.URI> fetchedMedia;
+    private List<RemoteMediaFetcher.MediaAsset> analyzedMedia;
+    private RemoteMediaFetcher.MediaAsset imageSentForOpinion;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -52,7 +65,7 @@ class MediaPersonalityWorkflowIntegrationTests {
         extractor = new MediaDocumentExtractor();
         fetchedMedia = new ArrayList<>();
 
-        var fetcher = mock(RemoteMediaFetcher.class);
+        fetcher = mock(RemoteMediaFetcher.class);
         when(fetcher.fetch(anyList())).thenAnswer(invocation -> {
             List<java.net.URI> references = invocation.getArgument(0);
             if (references.size() > 8) {
@@ -64,7 +77,11 @@ class MediaPersonalityWorkflowIntegrationTests {
                     .toList();
         });
 
-        var analyzer = mock(PersonalityAnalyzer.class);
+        videoFrameExtractor = mock(VideoFrameExtractor.class);
+        when(videoFrameExtractor.extract(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(new byte[] {1, 2, 3}));
+        analyzer = mock(PersonalityAnalyzer.class);
+        analyzedMedia = new ArrayList<>();
         when(analyzer.analyze(
                 org.mockito.ArgumentMatchers.any(),
                 org.mockito.ArgumentMatchers.any(),
@@ -72,15 +89,26 @@ class MediaPersonalityWorkflowIntegrationTests {
                 org.mockito.ArgumentMatchers.anyString()
         )).thenAnswer(invocation -> {
             MediaDocumentExtractor.Extraction extraction = invocation.getArgument(0);
+            List<RemoteMediaFetcher.MediaAsset> media = invocation.getArgument(1);
+            analyzedMedia.clear();
+            analyzedMedia.addAll(media);
             String guidance = invocation.getArgument(3);
             return "Updated from " + extraction.tags().size() + " interest tags with guidance: " + guidance;
+        });
+        imageOpinionService = mock(PersonalityImageOpinionService.class);
+        when(imageOpinionService.analyze(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString()
+        )).thenAnswer(invocation -> {
+            imageSentForOpinion = invocation.getArgument(0);
+            return "A description of the uploaded image.";
         });
 
         var service = new MediaPersonalityService(
                 extractor,
                 fetcher,
-                new MediaPreprocessor(video -> List.of()),
+                new MediaPreprocessor(videoFrameExtractor),
                 analyzer,
+                imageOpinionService,
                 promptStore,
                 memoryStore
         );
@@ -140,6 +168,58 @@ class MediaPersonalityWorkflowIntegrationTests {
         assertTrue(promptStore.load().contains(lastSuccessfulPageTagCount + " interest tags"));
     }
 
+    @Test
+    void uploadsSupportedImageFixturesThroughThePersonalityWorkflow() throws Exception {
+        for (ImageFixture fixture : IMAGE_FIXTURES) {
+            byte[] content = resourceBytes(fixture.filename());
+            var result = mockMvc.perform(multipart("/personality/upload")
+                            .file(new MockMultipartFile("file", fixture.filename(), fixture.uploadContentType(), content))
+                            .param("comment", "I like this image."))
+                    .andExpect(status().isOk())
+                    .andExpect(view().name("personality"))
+                    .andReturn();
+
+            var resultModel = result.getModelAndView().getModel();
+            assertFalse(resultModel.containsKey("error"), resultModel.toString());
+            assertTrue(((String) resultModel.get("success")).contains("1 media item"));
+            assertTrue(promptStore.load().startsWith("Updated from 0 interest tags"));
+            assertEquals(fixture.processedContentType(), imageSentForOpinion.contentType(), fixture.filename());
+            if (fixture.filename().endsWith(".gif")) {
+                assertTrue(javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(imageSentForOpinion.content())) != null);
+            } else {
+                assertTrue(java.util.Arrays.equals(content, imageSentForOpinion.content()), fixture.filename());
+            }
+        }
+    }
+
+    @Test
+    void processesReferencedVideoFramesThroughThePersonalityWorkflow() throws Exception {
+        byte[] video = resourceBytes(VIDEO_FIXTURE);
+        byte[] extractedFrame = resourceBytes("774972759111532544_0.png");
+        var uri = java.net.URI.create("https://media.example.test/" + VIDEO_FIXTURE);
+        org.mockito.Mockito.doAnswer(invocation -> List.of(
+                new RemoteMediaFetcher.MediaAsset(uri, "video/mp4", video)
+        )).when(fetcher).fetch(anyList());
+        when(videoFrameExtractor.extract(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(extractedFrame));
+        var html = new MockMultipartFile("file", "video.html", "text/html",
+                ("<video src=\"" + uri + "\"></video>").getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .file(html)
+                        .param("guidance", "I enjoy these videos."))
+                .andExpect(status().isOk())
+                .andExpect(view().name("personality"))
+                .andReturn();
+
+        var resultModel = result.getModelAndView().getModel();
+        assertFalse(resultModel.containsKey("error"), resultModel.toString());
+        assertTrue(promptStore.load().contains("I enjoy these videos."));
+        assertEquals(1, analyzedMedia.size());
+        assertEquals("image/png", analyzedMedia.getFirst().contentType());
+        assertTrue(java.util.Arrays.equals(extractedFrame, analyzedMedia.getFirst().content()));
+    }
+
     private static List<SamplePage> samplePages() throws Exception {
         List<SamplePage> pages = new ArrayList<>();
         for (String filename : SAMPLE_PAGES) {
@@ -176,6 +256,15 @@ class MediaPersonalityWorkflowIntegrationTests {
         return html.append("</body></html>").toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
+    private static byte[] resourceBytes(String filename) throws Exception {
+        try (var input = new ClassPathResource(filename).getInputStream()) {
+            return input.readAllBytes();
+        }
+    }
+
     private record SamplePage(String filename, byte[] html) {
+    }
+
+    private record ImageFixture(String filename, String uploadContentType, String processedContentType) {
     }
 }

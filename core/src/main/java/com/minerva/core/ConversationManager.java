@@ -19,6 +19,7 @@ import org.springframework.ai.session.compaction.TurnCountTrigger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MimeType;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -148,6 +149,10 @@ public class ConversationManager {
     /// @return The AI's response to the image and request.
     /// @throws MalformedURLException If the path to the image file is malformed.
     public static String seekImageOpinion(String pathToFile, String request) throws MalformedURLException {
+        return seekImageOpinion(pathToFile, request, MimeTypeUtils.IMAGE_JPEG);
+    }
+
+    public static String seekImageOpinion(String pathToFile, String request, MimeType imageMimeType) throws MalformedURLException {
         if (request == null) request = "Explain what do you see on this picture?";
 
         var pathToResource = new FileUrlResource(pathToFile);
@@ -157,7 +162,7 @@ public class ConversationManager {
         String response = aiChatClient.prompt()
                 .system(system -> system.text(currentPrompt()))
                 .user(u -> u.text(finalRequest)
-                        .media(MimeTypeUtils.IMAGE_JPEG, pathToResource))
+                        .media(imageMimeType, pathToResource))
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()
                 .content();

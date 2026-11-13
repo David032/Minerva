@@ -12,6 +12,7 @@ import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryReposito
 import java.io.IOException;
 
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -41,6 +42,8 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("multipart/form-data")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/personality/upload")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Shape Minerva")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("imageUrl")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy quiet gardens.")));
     }
 
@@ -71,5 +74,36 @@ class PersonalityPageTests {
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Analysis complete")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy botanical art.")));
+    }
+
+    @Test
+    void routesImageLinksAndCommentsToImageAnalysis() throws Exception {
+        when(service.processImage(org.mockito.ArgumentMatchers.isNull(),
+                eq("https://images.example.test/photo.png"), eq("I like this.")))
+                .thenReturn(new MediaPersonalityService.SubmissionResult(0, 1, "I enjoy this image."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .param("imageUrl", "https://images.example.test/photo.png")
+                        .param("comment", "I like this."))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy this image.")));
+
+        verify(service).processImage(org.mockito.ArgumentMatchers.isNull(),
+                eq("https://images.example.test/photo.png"), eq("I like this."));
+    }
+
+    @Test
+    void routesUploadedImagesAndCommentsToImageAnalysis() throws Exception {
+        when(service.processImage(any(), org.mockito.ArgumentMatchers.isNull(), eq("Describe this image.")))
+                .thenReturn(new MediaPersonalityService.SubmissionResult(0, 1, "I enjoy this image."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "file", "photo.png", "image/png", new byte[] {1, 2, 3}))
+                        .param("comment", "Describe this image."))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy this image.")));
+
+        verify(service).processImage(any(), org.mockito.ArgumentMatchers.isNull(), eq("Describe this image."));
     }
 }

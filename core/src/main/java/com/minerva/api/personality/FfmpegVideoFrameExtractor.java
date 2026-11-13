@@ -52,8 +52,19 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractor {
                 throw new IOException("Video analysis requires FFmpeg to be installed and available on PATH.", e);
             }
 
-            try (var input = process.getOutputStream()) {
-                input.write(video.content());
+            IOException inputFailure = null;
+            try {
+                process.getOutputStream().write(video.content());
+            } catch (IOException e) {
+                inputFailure = e;
+            } finally {
+                try {
+                    process.getOutputStream().close();
+                } catch (IOException e) {
+                    if (inputFailure == null) {
+                        inputFailure = e;
+                    }
+                }
             }
             try {
                 if (!process.waitFor(20, TimeUnit.SECONDS)) {
@@ -66,7 +77,11 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractor {
                 throw new IOException("Video frame extraction was interrupted.", e);
             }
             if (process.exitValue() != 0) {
-                throw new IOException("The referenced video could not be decoded for analysis.");
+                var failure = new IOException("The referenced video could not be decoded for analysis.");
+                if (inputFailure != null) {
+                    failure.addSuppressed(inputFailure);
+                }
+                throw failure;
             }
 
             try (Stream<Path> files = Files.list(directory)) {

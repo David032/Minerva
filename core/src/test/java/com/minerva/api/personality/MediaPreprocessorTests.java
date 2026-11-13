@@ -2,17 +2,22 @@ package com.minerva.api.personality;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Assumptions;
+import org.springframework.core.io.ClassPathResource;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("Unit")
@@ -46,6 +51,58 @@ class MediaPreprocessorTests {
         var preprocessor = new MediaPreprocessor(video -> List.of());
 
         assertThrows(IllegalArgumentException.class, () -> preprocessor.prepare(assets));
+    }
+
+    @Test
+    void rejectsPreparedImagesOverFiveMegabytes() {
+        var image = new RemoteMediaFetcher.MediaAsset(
+                URI.create("upload://image"), "image/png", new byte[5 * 1024 * 1024 + 1]);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new MediaPreprocessor(video -> List.of()).prepare(List.of(image)));
+    }
+
+    @Test
+    void extractsFramesFromTheBundledVideoWhenFfmpegIsAvailable() throws Exception {
+        Assumptions.assumeTrue(ffmpegAvailable(), "FFmpeg is required for this fixture test.");
+        byte[] video;
+        try (var input = new ClassPathResource("731543319053778944_0.mp4").getInputStream()) {
+            video = input.readAllBytes();
+        }
+        var source = URI.create("https://media.example.test/731543319053778944_0.mp4");
+        var extractor = new FfmpegVideoFrameExtractor("ffmpeg");
+
+        List<byte[]> frames = extractor.extract(
+                new RemoteMediaFetcher.MediaAsset(source, "video/mp4", video));
+
+        assertFalse(frames.isEmpty());
+        assertTrue(frames.size() <= 3);
+        for (byte[] frame : frames) {
+            assertTrue(ImageIO.read(new java.io.ByteArrayInputStream(frame)) != null);
+        }
+    }
+
+    private static boolean ffmpegAvailable() throws IOException, InterruptedException {
+        Process process;
+        try {
+            process = new ProcessBuilder("ffmpeg", "-version")
+                    .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD)
+                    .start();
+        } catch (IOException e) {
+            return false;
+        }
+        try {
+            if (!process.waitFor(5, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return false;
+            }
+            return process.exitValue() == 0;
+        } finally {
+            if (process.isAlive()) {
+                process.destroyForcibly();
+            }
+        }
     }
 
     private static byte[] createGif() throws Exception {
