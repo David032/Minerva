@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Tag("Unit")
-class VcgencmdTests {
+class VcgencmdToolsUnitTests {
 
     @Test
     void reportsWhenHardwareIsUnavailableWithoutRunningCommand() {

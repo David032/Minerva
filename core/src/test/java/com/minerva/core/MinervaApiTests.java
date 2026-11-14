@@ -81,6 +81,21 @@ public class MinervaApiTests {
     }
 
     @Test
+    void PersonalityPageIsRenderedWithThymeleaf() {
+        restTestClient.get().uri("/personality")
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(body -> {
+                    Assertions.assertTrue(body.contains("Shape Minerva&#39;s personality")
+                            || body.contains("Shape Minerva's personality"));
+                    Assertions.assertTrue(body.contains("multipart/form-data"));
+                    Assertions.assertTrue(body.contains("/personality/upload"));
+                    Assertions.assertTrue(body.contains("Personality prompt"));
+                });
+    }
+
+    @Test
     void ImageInteraction() {
         restTestClient
                 .post().uri(
@@ -112,6 +127,24 @@ public class MinervaApiTests {
                                 uriBuilder.host("localhost").port(port).path("/audio")
                                         .queryParam("message","Process this audio file")
                                         .queryParam("audioPath", "src/test/resources/test_audio.wav")
+                                        .build())
+                .exchange()
+                .expectBody(String.class);
+    }
+
+    @Test
+    void RssInteraction() {
+        restTestClient.post().uri(uriBuilder -> uriBuilder.host("localhost").port(port).path("/rss/addRssFeed")
+                                        .queryParam("title","BBC News").queryParam("url","https://feeds.bbci.co.uk/news/uk/rss.xml")
+                                        .build())
+                .exchange()
+                .expectStatus().isOk();
+
+        restTestClient
+                .post().uri(
+                        uriBuilder ->
+                                uriBuilder.host("localhost").port(port).path("/message")
+                                        .queryParam("message","What are the current BBC news headlines")
                                         .build())
                 .exchange()
                 .expectBody(String.class);
