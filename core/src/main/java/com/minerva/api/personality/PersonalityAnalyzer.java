@@ -3,15 +3,33 @@ package com.minerva.api.personality;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
 
+/**
+ * Uses the local chat model to revise user personality preferences from untrusted media and explicit guidance.
+ */
 @Component
 public class PersonalityAnalyzer {
     private static final int MAX_TEXT_CHARS = 40_000;
     private final ChatClient chatClient;
 
+    /**
+     * Creates the analyzer using the configured chat client.
+     *
+     * @param builder configured Spring AI chat-client builder
+     */
     public PersonalityAnalyzer(ChatClient.Builder builder) {
         this.chatClient = builder.build();
     }
 
+    /**
+     * Generates an updated personality preference prompt from extracted content and user guidance.
+     *
+     * @param extraction text and tags extracted from the uploaded document
+     * @param media prepared image assets to analyze
+     * @param currentPrompt the user's current personality preferences
+     * @param guidance optional explicit user preference guidance
+     * @return the complete revised personality preference prompt
+     * @throws IllegalStateException if the model returns an empty or oversized response
+     */
     public String analyze(
             MediaDocumentExtractor.Extraction extraction,
             java.util.List<RemoteMediaFetcher.MediaAsset> media,

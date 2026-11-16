@@ -16,10 +16,22 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Extracts readable text, interest tags, and eligible media URLs from PDF and HTML uploads.
+ */
 @Component
 public class MediaDocumentExtractor {
+    /** Maximum allowed size of a document upload, in bytes. */
     public static final long MAX_UPLOAD_BYTES = 10L * 1024 * 1024;
 
+    /**
+     * Extracts content from a supported document upload.
+     *
+     * @param file uploaded PDF or HTML document
+     * @return extracted text, tags, and media URLs
+     * @throws IllegalArgumentException if the upload is empty, oversized, invalid, or unsupported
+     * @throws IOException if a valid PDF cannot be read
+     */
     public Extraction extract(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Choose a non-empty PDF or HTML file.");
@@ -137,6 +149,13 @@ public class MediaDocumentExtractor {
         return "http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme());
     }
 
+    /**
+     * Content extracted from one uploaded document.
+     *
+     * @param text readable document text
+     * @param tags unique interest tags found in the document
+     * @param mediaUrls eligible HTTP(S) media references found in the document
+     */
     public record Extraction(String text, List<String> tags, List<URI> mediaUrls) {
     }
 }

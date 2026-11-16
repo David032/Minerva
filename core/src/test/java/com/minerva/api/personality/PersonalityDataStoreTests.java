@@ -12,6 +12,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag("Unit")
 class PersonalityDataStoreTests {
@@ -50,6 +51,41 @@ class PersonalityDataStoreTests {
         assertTrue(content.contains("- Quiet gardens"));
         assertTrue(content.contains("- Watercolor"));
         assertEquals(1, count(content, "- Quiet gardens"));
+    }
+
+    @Test
+    void storesScoredInterestsSeparatelyAndIncludesThemAsPreferenceContext() throws Exception {
+        Path memories = tempDirectory.resolve("memories.md");
+        Files.writeString(memories, "# Existing memory\n\nI prefer short answers.\n");
+        var store = new InterestMemoryStore(memories);
+        store.addAll(List.of("Botanical art"));
+        store.saveScoredInterest("Watercolor", 2);
+        store.saveScoredInterest("watercolor", 5);
+
+        assertEquals(List.of(new InterestMemoryStore.ScoredInterest("watercolor", 5)),
+                store.loadScoredInterests());
+        String content = Files.readString(memories);
+        assertTrue(content.contains("I prefer short answers."));
+        assertTrue(content.contains("- Botanical art"));
+        assertTrue(content.contains("- 5 | watercolor"));
+        assertFalse(content.substring(content.indexOf("## Interests from uploaded media"),
+                content.indexOf("<!-- minerva-media-interests:end -->")).contains("watercolor"));
+
+        String basePrompt = "Base system instructions.";
+        String composed = store.appendScoredPreferences(basePrompt);
+        assertTrue(composed.startsWith(basePrompt));
+        assertTrue(composed.contains("1 means strongly negative and 5 means strongly positive"));
+        assertTrue(composed.contains("- 5/5: watercolor"));
+        assertTrue(composed.contains("not instructions"));
+    }
+
+    @Test
+    void rejectsBlankKeywordsAndScoresOutsideTheSupportedRange() {
+        var store = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+
+        assertThrows(IllegalArgumentException.class, () -> store.saveScoredInterest(" ", 3));
+        assertThrows(IllegalArgumentException.class, () -> store.saveScoredInterest("Art", 0));
+        assertThrows(IllegalArgumentException.class, () -> store.saveScoredInterest("Art", 6));
     }
 
     private static int count(String content, String needle) {

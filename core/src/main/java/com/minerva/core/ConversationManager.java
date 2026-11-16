@@ -1,5 +1,6 @@
 package com.minerva.core;
 
+import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.core.personality.PersonalityPromptStore;
 import com.minerva.utils.Directory;
@@ -108,16 +109,18 @@ public class ConversationManager {
         }
     }
 
-    /// <summary>
-    /// Builds the base prompt for the AI by combining multiple prompt files.
-    /// </summary>
-    /// @return The combined prompt as a string.
-    /// @throws IOException If an I/O error occurs while reading the prompt files.
+    /**
+     * Builds the system prompt from the base prompt, saved personality prompt, and scored interests.
+     *
+     * @return the composed system prompt with user preference context
+     * @throws IOException if a prompt or interest preference cannot be read
+     */
     public static String buildPrompt() throws IOException {
         ResourceLoader resourceLoader = new DefaultResourceLoader();
         String basePrompt = resourceLoader.getResource("classpath:/prompts/BASE_PROMPT.md").getContentAsString(Charset.defaultCharset()) +
                 resourceLoader.getResource("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md").getContentAsString(Charset.defaultCharset());
-        return new PersonalityPromptStore(FileManager.getInstance()).composeWith(basePrompt);
+        String personalityPrompt = new PersonalityPromptStore(FileManager.getInstance()).composeWith(basePrompt);
+        return new InterestMemoryStore(FileManager.getInstance()).appendScoredPreferences(personalityPrompt);
     }
 
     /// <summary>
@@ -152,6 +155,15 @@ public class ConversationManager {
         return seekImageOpinion(pathToFile, request, MimeTypeUtils.IMAGE_JPEG);
     }
 
+    /**
+     * Seeks an opinion on an image using the configured chat model and its actual MIME type.
+     *
+     * @param pathToFile path to the image file to analyze
+     * @param request user request or question about the image
+     * @param imageMimeType MIME type used to attach the image
+     * @return the model's response to the image and request
+     * @throws MalformedURLException if the image path is malformed
+     */
     public static String seekImageOpinion(String pathToFile, String request, MimeType imageMimeType) throws MalformedURLException {
         if (request == null) request = "Explain what do you see on this picture?";
 

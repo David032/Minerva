@@ -51,6 +51,43 @@ class MediaPersonalityServiceTests {
     }
 
     @Test
+    void processesHtmlBatchesIndependentlyAndReportsFailuresByFilename() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+        var fetcher = mock(RemoteMediaFetcher.class);
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(fetcher.fetch(List.of())).thenReturn(List.of());
+        when(analyzer.analyze(any(), any(), any(), any())).thenAnswer(invocation -> {
+            MediaDocumentExtractor.Extraction extraction = invocation.getArgument(0);
+            if (extraction.text().contains("Broken")) {
+                throw new IllegalStateException("Model unavailable.");
+            }
+            return "Updated from a valid page.";
+        });
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, memoryStore);
+        List<org.springframework.web.multipart.MultipartFile> files = List.of(
+                new MockMultipartFile("htmlFiles", "broken.html", "text/html", "<p>Broken</p>".getBytes()),
+                new MockMultipartFile("htmlFiles", "good.html", "text/html",
+                        "<span class=\"tag\">Botanical art</span>".getBytes()),
+                new MockMultipartFile("htmlFiles", "not-html.pdf", "application/pdf", "%PDF-1.7".getBytes())
+        );
+
+        var result = service.processHtmlBatch(files, "");
+
+        assertEquals(1, result.successfulFileCount());
+        assertEquals(1, result.savedTagCount());
+        assertEquals(2, result.failures().size());
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.filename().equals("broken.html")
+                && failure.message().contains("Media analysis failed")));
+        assertTrue(result.failures().stream().anyMatch(failure -> failure.filename().equals("not-html.pdf")
+                && failure.message().contains("Only HTML files")));
+        assertEquals("Updated from a valid page.", result.personalityPrompt());
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- Botanical art"));
+    }
+
+    @Test
     void doesNotPersistPromptOrTagsWhenAnalysisFails() throws Exception {
         var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
         var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
