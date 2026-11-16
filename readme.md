@@ -12,6 +12,34 @@ Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide 
 
 The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyze referenced videos.
 
+## Local backup and restore
+
+Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, and `personality.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.
+
+With the Compose stack running, create a backup at a path outside the repository:
+
+```sh
+python3 scripts/minerva_backup.py backup --output /path/to/minerva-backup.zip
+```
+
+Existing backup files are not overwritten unless `--force` is provided. On Windows, use `py -3` in place of `python3`.
+
+For the production Compose file, add `-f prod-compose.yaml` before `backup`:
+
+```sh
+python3 scripts/minerva_backup.py -f prod-compose.yaml backup --output /path/to/minerva-backup.zip
+```
+
+Restore replaces the PostgreSQL database and the backed-up user data. It requires the explicit `--replace` confirmation; it does not merge. The script validates the archive and database dump before stopping Minerva, stages file changes, and retains rollback data until both database and file restoration succeed:
+
+```sh
+python3 scripts/minerva_backup.py restore --archive /path/to/minerva-backup.zip --replace
+```
+
+Restore also requires the Compose `core` and `db` services to be running. Minerva is stopped while the database and files are captured or restored, then restarted. Keep backups private: conversations and memories may contain sensitive personal data.
+
+The Compose data volume is mounted at the dedicated filesystem-root directory `/MinervaOS`; it is not mounted over `/`. On first startup after upgrading from the previous `core-data:/home` layout, Minerva copies existing data from `/MinervaOS/app/MinervaOS` into the new locations and leaves the original files in place. If destination data already exists, it is preserved and a warning identifies the legacy copy for manual review.
+
 # Installation Requirements
 * Docker
 
@@ -42,3 +70,4 @@ then brings up the docker-compose stack.
 # Testing
 From the `core` directory, run the Docker-free unit tests with `mvn -B -Dgroups=Unit test`.
 The container-backed integration tests use `mvn -B -Dgroups=ContinuousIntegration test`.
+The backup archive tests use `python3 -m unittest discover -s scripts`.
