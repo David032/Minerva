@@ -33,6 +33,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 45s
+    env_file:
+      - path: .env
 
   db:
     image: postgres:17-alpine
