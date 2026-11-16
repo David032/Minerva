@@ -24,6 +24,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+/**
+ * Fetches size-bounded public HTTP(S) media referenced by uploaded HTML documents.
+ */
 @Component
 public class RemoteMediaFetcher {
     private static final int MAX_MEDIA_COUNT = 8;
@@ -36,10 +39,19 @@ public class RemoteMediaFetcher {
     private final CloseableHttpClient httpClient;
     private final AddressResolver addressResolver;
 
+    /**
+     * Creates a fetcher with redirect-disabled HTTP and public-address validation.
+     */
     public RemoteMediaFetcher() {
         this(createHttpClient(), RemoteMediaFetcher::resolvePublicAddresses);
     }
 
+    /**
+     * Creates a fetcher with an injected HTTP client and address resolver.
+     *
+     * @param httpClient HTTP client used to retrieve media
+     * @param addressResolver resolves and validates destination addresses
+     */
     RemoteMediaFetcher(CloseableHttpClient httpClient, AddressResolver addressResolver) {
         this.httpClient = httpClient;
         this.addressResolver = addressResolver;
@@ -83,6 +95,14 @@ public class RemoteMediaFetcher {
                 .build();
     }
 
+    /**
+     * Downloads supported media references while enforcing destination, count, and size limits.
+     *
+     * @param references HTTP(S) media URLs discovered in a document
+     * @return fetched assets in reference order
+     * @throws IllegalArgumentException if a URL, content type, or media size is unsupported
+     * @throws IOException if a host cannot be resolved or a media server cannot be read
+     */
     public List<MediaAsset> fetch(List<URI> references) throws IOException {
         if (references.size() > MAX_MEDIA_COUNT) {
             throw new IllegalArgumentException("The HTML file references more than 8 media items.");
@@ -213,11 +233,28 @@ public class RemoteMediaFetcher {
         return uri.getHost() == null ? "unknown host" : uri.getHost();
     }
 
+    /**
+     * Fetched media bytes and the metadata needed to pass them to an analyzer.
+     *
+     * @param source original media URI
+     * @param contentType validated media content type
+     * @param content media bytes
+     */
     public record MediaAsset(URI source, String contentType, byte[] content) {
+        /**
+         * Returns this asset's parsed Spring MIME type.
+         *
+         * @return the content type as a MIME type
+         */
         public MimeType mimeType() {
             return MediaType.parseMediaType(contentType);
         }
 
+        /**
+         * Wraps the asset bytes as a Spring resource for model attachment.
+         *
+         * @return an in-memory resource with a source-based filename
+         */
         public ByteArrayResource resource() {
             return new ByteArrayResource(content) {
                 @Override

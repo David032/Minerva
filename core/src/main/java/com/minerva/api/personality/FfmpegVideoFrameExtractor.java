@@ -11,16 +11,32 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+/**
+ * Extracts a small, time-bounded sample of frames from supported videos using FFmpeg.
+ */
 @Component
 public class FfmpegVideoFrameExtractor implements VideoFrameExtractor {
     private static final long MAX_FRAME_BYTES = 2L * 1024 * 1024;
     private static final long MAX_OUTPUT_BYTES = 6L * 1024 * 1024;
     private final String ffmpegCommand;
 
+    /**
+     * Creates the extractor with the configured FFmpeg executable.
+     *
+     * @param ffmpegCommand executable or command name used to launch FFmpeg
+     */
     public FfmpegVideoFrameExtractor(@Value("${minerva.media.ffmpeg-command:ffmpeg}") String ffmpegCommand) {
         this.ffmpegCommand = ffmpegCommand;
     }
 
+    /**
+     * Extracts at most three scaled PNG frames from the first 30 seconds of a supported video.
+     *
+     * @param video fetched video asset
+     * @return extracted PNG frame bytes
+     * @throws IllegalArgumentException if the video format is unsupported
+     * @throws IOException if FFmpeg is unavailable, the video cannot be decoded, or a time/size limit is exceeded
+     */
     @Override
     public List<byte[]> extract(RemoteMediaFetcher.MediaAsset video) throws IOException {
         String extension = switch (video.contentType()) {

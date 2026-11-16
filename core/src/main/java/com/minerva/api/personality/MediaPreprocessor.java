@@ -12,6 +12,9 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * Converts fetched media into bounded image assets that can be analyzed by the local model.
+ */
 @Component
 public class MediaPreprocessor {
     private static final int MAX_MODEL_IMAGES = 12;
@@ -19,10 +22,23 @@ public class MediaPreprocessor {
     private static final long MAX_MODEL_MEDIA_BYTES = 20L * 1024 * 1024;
     private final VideoFrameExtractor videoFrameExtractor;
 
+    /**
+     * Creates the preprocessor with its video-frame extraction strategy.
+     *
+     * @param videoFrameExtractor extracts bounded image frames from supported videos
+     */
     public MediaPreprocessor(VideoFrameExtractor videoFrameExtractor) {
         this.videoFrameExtractor = videoFrameExtractor;
     }
 
+    /**
+     * Prepares images, GIFs, and videos for model analysis and enforces image and aggregate limits.
+     *
+     * @param assets fetched media assets
+     * @return an immutable list of prepared images and sampled video frames
+     * @throws IllegalArgumentException if media or frame counts exceed supported limits
+     * @throws IOException if an animated image cannot be decoded or prepared
+     */
     public List<RemoteMediaFetcher.MediaAsset> prepare(List<RemoteMediaFetcher.MediaAsset> assets) throws IOException {
         List<RemoteMediaFetcher.MediaAsset> prepared = new ArrayList<>();
         long totalBytes = 0;

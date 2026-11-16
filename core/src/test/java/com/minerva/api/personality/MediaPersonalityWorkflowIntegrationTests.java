@@ -9,6 +9,10 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.thymeleaf.spring6.SpringTemplateEngine;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+import org.thymeleaf.spring6.view.ThymeleafViewResolver;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -112,7 +117,18 @@ class MediaPersonalityWorkflowIntegrationTests {
                 promptStore,
                 memoryStore
         );
-        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(service)).build();
+        ClassLoaderTemplateResolver templateResolver = new ClassLoaderTemplateResolver();
+        templateResolver.setPrefix("templates/");
+        templateResolver.setSuffix(".html");
+        templateResolver.setTemplateMode(TemplateMode.HTML);
+        templateResolver.setCharacterEncoding("UTF-8");
+        SpringTemplateEngine templateEngine = new SpringTemplateEngine();
+        templateEngine.setTemplateResolver(templateResolver);
+        ThymeleafViewResolver viewResolver = new ThymeleafViewResolver();
+        viewResolver.setTemplateEngine(templateEngine);
+        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(service))
+                .setViewResolvers(viewResolver)
+                .build();
     }
 
     @Test
@@ -166,6 +182,60 @@ class MediaPersonalityWorkflowIntegrationTests {
         }
         assertTrue(expectedTags.size() >= 10, "The sample pages should cover multiple interest tags.");
         assertTrue(promptStore.load().contains(lastSuccessfulPageTagCount + " interest tags"));
+    }
+
+    @Test
+    void processesHtmlBatchesAndIdentifiesUnsupportedFiles() throws Exception {
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .file(new MockMultipartFile("htmlFiles", "good.html", "text/html",
+                                "<span class=\"tag\">Watercolor</span>".getBytes()))
+                        .file(new MockMultipartFile("htmlFiles", "wrong.pdf", "application/pdf",
+                                "%PDF-1.7".getBytes()))
+                        .param("guidance", "I enjoy these pages."))
+                .andExpect(status().isOk())
+                .andExpect(view().name("personality"))
+                .andReturn();
+
+        var resultModel = result.getModelAndView().getModel();
+        assertTrue(((String) resultModel.get("success")).contains("Processed 1 HTML file"));
+        assertTrue(((String) resultModel.get("error")).contains("wrong.pdf"));
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- Watercolor"));
+        assertTrue(promptStore.load().contains("I enjoy these pages."));
+    }
+
+    @Test
+    void addsReviewsAndUpdatesScoredPreferencesThroughThePage() throws Exception {
+        mockMvc.perform(get("/personality/interests"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("interests"));
+
+        mockMvc.perform(multipart("/personality/interests")
+                        .param("keyword", "Watercolor")
+                        .param("score", "2"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("interests"));
+        assertEquals(List.of(new InterestMemoryStore.ScoredInterest("Watercolor", 2)),
+                memoryStore.loadScoredInterests());
+
+        mockMvc.perform(multipart("/personality/interests")
+                        .param("keyword", "Watercolor")
+                        .param("score", "5"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("interests"));
+        assertEquals(List.of(new InterestMemoryStore.ScoredInterest("Watercolor", 5)),
+                memoryStore.loadScoredInterests());
+
+        var invalidUpdate = mockMvc.perform(multipart("/personality/interests")
+                        .param("keyword", "Watercolor")
+                        .param("score", "6"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("interests"))
+                .andReturn();
+        assertTrue(invalidUpdate.getModelAndView().getModel().containsKey("error"));
+        assertEquals(List.of(new InterestMemoryStore.ScoredInterest("Watercolor", 5)),
+                memoryStore.loadScoredInterests());
+        assertTrue(memoryStore.appendScoredPreferences("Unchanged base prompt.")
+                .contains("- 5/5: Watercolor"));
     }
 
     @Test
