@@ -60,7 +60,7 @@ class MinervaApplicationTests {
         var response = ConversationManager.sendMessage("Set an alarm for " + alarmTime);
         var normalizedResponse = response.toLowerCase();
         assertThat(normalizedResponse, containsString("alarm"));
-        assertThat(normalizedResponse, containsString("15:30"));
+        Assertions.assertTrue(normalizedResponse.contains("15:30") || normalizedResponse.contains("3:30 pm"));
         Assertions.assertTrue(normalizedResponse.contains("2024-06-30")
                 || normalizedResponse.contains("june 30, 2024"));
     }
