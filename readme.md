@@ -22,7 +22,7 @@ With the Compose stack running, create a backup at a path outside the repository
 python3 scripts/minerva_backup.py backup --output /path/to/minerva-backup.zip
 ```
 
-Existing backup files are not overwritten unless `--force` is provided. On Windows, use `py -3` in place of `python3`.
+Existing backup files are not overwritten unless `--force` is provided.
 
 For the production Compose file, add `-f prod-compose.yaml` before `backup`:
 
@@ -38,10 +38,13 @@ python3 scripts/minerva_backup.py restore --archive /path/to/minerva-backup.zip 
 
 Restore also requires the Compose `core` and `db` services to be running. Minerva is stopped while the database and files are captured or restored, then restarted. Keep backups private: conversations and memories may contain sensitive personal data.
 
-The Compose data volume is mounted at the dedicated filesystem-root directory `/MinervaOS`; it is not mounted over `/`. On first startup after upgrading from the previous `core-data:/home` layout, Minerva copies existing data from `/MinervaOS/app/MinervaOS` into the new locations and leaves the original files in place. If destination data already exists, it is preserved and a warning identifies the legacy copy for manual review.
+The Compose data volume is mounted at the dedicated filesystem-root directory `/MinervaOS`. On first startup after upgrading from the previous `core-data:/home` layout, Minerva copies existing data from `/MinervaOS/app/MinervaOS` into the new locations and leaves the original files in place. If destination data already exists, it is preserved and a warning identifies the legacy copy for manual review.
 
 # Installation Requirements
 * Docker
+
+# Optional Requirements
+* Python
 
 ## .env values
 * POSTGRES_PASSWORD - Required
@@ -53,14 +56,11 @@ The Compose data volume is mounted at the dedicated filesystem-root directory `/
 * BraincraftHMI - A simple server wrapper for Adafruit's Braincraft Hat. Minerva *will* have an integrated advisor that outputs to the Braincraft Hat's display; the HMI side will be able to send data to Minerva.
 
 # Raspberry PI Quickstart
-If you simply want to try this out on a Raspberry Pi 5(or any other device), you can quickly get started by running the following commands:
-* `wget https://raw.githubusercontent.com/David032/Minerva/refs/heads/master/scripts/installer.sh`
-* `sudo chmod +x installer.sh`
-* `sudo ./installer.sh`
-
-This downloads and runs an installer script that: Creates a deploy directory, downloads prod-compose.yaml,
-auto-generates a strong POSTGRES_PASSWORD, writes it to .env and db/password.txt,
-then brings up the docker-compose stack.
+If you simply want to try this out on a Raspberry Pi 5 8/16GB(I wouldn't recommend this on anything else), you can quickly get started by doing the following:
+* Create a directory and drop the prod-compose file into it
+* Create an .env file, with the calues outline above
+* Create a folder in there called db, and in it create a file called password.txt with a password that matches what's in the .env
+* Bring up the docker compose file
 
 # Building from source/Contributing
 * Clone the repo
