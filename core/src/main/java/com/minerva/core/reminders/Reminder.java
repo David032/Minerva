@@ -13,6 +13,12 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
+/**
+ * Persisted, single-user reminder state.
+ *
+ * <p>Scheduled reminders transition to due when their time arrives. Due reminders stay active
+ * until acknowledged, allowing clients to recover notifications after a restart or disconnect.</p>
+ */
 @Entity
 @Table(name = "reminders", indexes = {
         @Index(name = "idx_reminders_status_scheduled_at", columnList = "status, scheduled_at")
@@ -44,6 +50,14 @@ public class Reminder {
     protected Reminder() {
     }
 
+    /**
+     * Creates a new scheduled reminder.
+     *
+     * @param message reminder text shown to the user
+     * @param scheduledAt absolute instant at which the reminder becomes due
+     * @param timeZone zone used to interpret and display the requested local time
+     * @param createdAt creation time
+     */
     public Reminder(String message, Instant scheduledAt, String timeZone, Instant createdAt) {
         this.message = message;
         this.scheduledAt = scheduledAt;
@@ -53,34 +67,46 @@ public class Reminder {
         this.updatedAt = createdAt;
     }
 
+    /** @return persistent identifier, or {@code null} before the entity is saved */
     public UUID getId() {
         return id;
     }
 
+    /** @return reminder text */
     public String getMessage() {
         return message;
     }
 
+    /** @return the scheduled absolute instant */
     public Instant getScheduledAt() {
         return scheduledAt;
     }
 
+    /** @return time zone used to interpret and display the scheduled time */
     public String getTimeZone() {
         return timeZone;
     }
 
+    /** @return current lifecycle status */
     public ReminderStatus getStatus() {
         return status;
     }
 
+    /** @return creation time */
     public Instant getCreatedAt() {
         return createdAt;
     }
 
+    /** @return time of the most recent lifecycle transition */
     public Instant getUpdatedAt() {
         return updatedAt;
     }
 
+    /**
+     * Marks this reminder due if it is still scheduled.
+     *
+     * @param now time at which the transition is recorded
+     */
     void markDue(Instant now) {
         if (status == ReminderStatus.SCHEDULED) {
             status = ReminderStatus.DUE;
@@ -88,6 +114,12 @@ public class Reminder {
         }
     }
 
+    /**
+     * Cancels this reminder unless it has already been acknowledged.
+     *
+     * @param now time at which cancellation is recorded
+     * @throws IllegalStateException if the reminder was acknowledged
+     */
     void cancel(Instant now) {
         if (status == ReminderStatus.ACKNOWLEDGED) {
             throw new IllegalStateException("An acknowledged reminder cannot be cancelled");
@@ -98,6 +130,12 @@ public class Reminder {
         }
     }
 
+    /**
+     * Acknowledges a due reminder.
+     *
+     * @param now time at which acknowledgement is recorded
+     * @throws IllegalStateException if the reminder is not due
+     */
     void acknowledge(Instant now) {
         if (status == ReminderStatus.ACKNOWLEDGED) {
             return;

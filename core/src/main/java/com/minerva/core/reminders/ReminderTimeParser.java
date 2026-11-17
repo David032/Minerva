@@ -12,6 +12,12 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalQueries;
 import java.util.List;
 
+/**
+ * Resolves reminder date/time input to an absolute instant and its display time zone.
+ *
+ * <p>Local times in daylight-saving gaps are rejected. For overlaps, the earlier valid offset
+ * is selected.</p>
+ */
 @Component
 public class ReminderTimeParser {
     private final ZoneId defaultTimeZone;
@@ -20,6 +26,14 @@ public class ReminderTimeParser {
         this.defaultTimeZone = ZoneId.of(defaultTimeZone);
     }
 
+    /**
+     * Parses ISO-8601 input, honoring an explicit offset or zone when present.
+     *
+     * @param value ISO-8601 date/time input
+     * @param requestedTimeZone optional IANA zone for local input without an explicit zone
+     * @return resolved instant and display zone
+     * @throws IllegalArgumentException if the input, requested zone, or local time is invalid
+     */
     public ResolvedTime parse(String value, String requestedTimeZone) {
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("A reminder date and time is required");
@@ -59,6 +73,12 @@ public class ReminderTimeParser {
         return zone instanceof ZoneOffset offset && offset.equals(ZoneOffset.UTC) ? "UTC" : zone.getId();
     }
 
+    /**
+     * Resolved absolute instant and the zone used to interpret or display it.
+     *
+     * @param instant absolute scheduled instant
+     * @param timeZone IANA zone or explicit offset identifier
+     */
     public record ResolvedTime(Instant instant, String timeZone) {
     }
 }

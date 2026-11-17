@@ -4,9 +4,10 @@ The Java application and its `pom.xml` are in `core/`, not the project root. Run
 
 The project targets Java 26 (`core/pom.xml`). Check `java -version` before building and make sure Maven uses a JDK 26 installation; an older JDK can report `release version 26 not supported`.
 
-## Testing
+## Testing & Documentation
 All new features or functionality must be covered with Unit tests, and should have integration tests wherever possible. Use `@Tag("Unit")` for unit tests and `@Tag("ContinuousIntegration")
-` for integration tests
+` for integration tests. 
+There must be javadoc comments for all new features and functionality.
 
 ## Efficient validation
 
