@@ -34,6 +34,8 @@ class ChatPageTests {
                 .andExpect(content().string(containsString("id=\"message-input\"")))
                 .andExpect(content().string(containsString("id=\"send-button\"")))
                 .andExpect(content().string(containsString("id=\"status\"")))
+                .andExpect(content().string(containsString("id=\"reminder-form\"")))
+                .andExpect(content().string(containsString("id=\"reminder-list\"")))
                 .andExpect(content().string(containsString("href=\"/personality\"")))
                 .andExpect(content().string(containsString("href=\"/chat.css\"")))
                 .andExpect(content().string(containsString("src=\"/chat.js\"")));

@@ -1,6 +1,8 @@
 package com.minerva.api;
 
 import com.minerva.core.ConversationManager;
+import com.minerva.core.reminders.ReminderTools;
+import com.minerva.tools.DateTimeTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.utils.FileManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,9 +27,11 @@ public class ConversationController {
     ConversationController(
             ChatClient.Builder ai,
             SessionService sessionService,
-            SkillImportService skillImportService
+            SkillImportService skillImportService,
+            DateTimeTools dateTimeTools,
+            ReminderTools reminderTools
     ) throws IOException {
-        ConversationManager.Initialize(ai, sessionService, skillImportService);
+        ConversationManager.Initialize(ai, sessionService, skillImportService, dateTimeTools, reminderTools);
         fileManager = FileManager.getInstance();
         conversation = new ConversationOperations() {
             @Override

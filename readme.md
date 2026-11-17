@@ -18,6 +18,10 @@ Open `/skills` to import a ZIP archive or a public HTTPS ZIP/Git repository. Sou
 
 The assistant can also find and install skills using its import tool. This uses web search when `BRAVE_API_KEY` is configured; otherwise, provide the assistant with a source URL. Imported skill instructions are third-party content and should be treated cautiously.
 
+## Reminders
+
+Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Due reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
+
 ## Local backup and restore
 
 Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, and `personality.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.

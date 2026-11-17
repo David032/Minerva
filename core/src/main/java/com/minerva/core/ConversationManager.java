@@ -2,6 +2,7 @@ package com.minerva.core;
 
 import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.tools.DateTimeTools;
+import com.minerva.core.reminders.ReminderTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
@@ -62,7 +63,9 @@ public class ConversationManager {
     public static synchronized void Initialize(
             ChatClient.Builder builder,
             SessionService sessionService,
-            SkillImportService skillImportService
+            SkillImportService skillImportService,
+            DateTimeTools dateTimeTools,
+            ReminderTools reminderTools
     ) throws IOException {
         baseChatClientBuilder = builder.clone();
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
@@ -98,7 +101,9 @@ public class ConversationManager {
                 GrepTool.builder().build(),
                 GlobTool.builder().build(),
                 memoryTools,
-                new SkillImportTools(skillImportService)
+                new SkillImportTools(skillImportService),
+                dateTimeTools,
+                reminderTools
         };
         if (System.getenv("BRAVE_API_KEY") != null) {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
@@ -160,7 +165,6 @@ public class ConversationManager {
         var response = aiChatClient
                 .prompt()
                 .system(system -> system.text(currentPrompt()))
-                .tools(new DateTimeTools())
                 .user(message)
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                 .call()

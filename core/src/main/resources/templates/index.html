@@ -20,6 +20,26 @@
         <a th:href="@{/skills}">Import skills</a>
     </header>
 
+    <section id="reminders" class="reminders" aria-labelledby="reminders-heading">
+        <div class="reminders-heading">
+            <h2 id="reminders-heading">Reminders</h2>
+            <button id="refresh-reminders" type="button">Refresh</button>
+        </div>
+        <form id="reminder-form" class="reminder-form">
+            <label>
+                <span>When</span>
+                <input id="reminder-time" name="time" type="datetime-local" required>
+            </label>
+            <label>
+                <span>Reminder</span>
+                <input id="reminder-message" name="message" maxlength="1000" required>
+            </label>
+            <button type="submit">Add reminder</button>
+        </form>
+        <p id="reminder-status" role="status" aria-live="assertive"></p>
+        <ul id="reminder-list" aria-live="polite"></ul>
+    </section>
+
     <section id="conversation" class="conversation" aria-label="Conversation" aria-live="polite">
         <p class="welcome">What can I help you with?</p>
     </section>
