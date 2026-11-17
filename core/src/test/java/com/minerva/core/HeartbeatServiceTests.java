@@ -32,7 +32,7 @@ class HeartbeatServiceTests {
         Files.writeString(heartbeatFile, "Check something");
         when(fileManager.getHeartbeatFilePath()).thenReturn(heartbeatFile);
 
-        try (var ignored = activityGate.beginConversation()) {
+        try (var ignored = activityGate.tryBeginConversation().orElseThrow()) {
             assertFalse(service.runIfIdle());
         }
 

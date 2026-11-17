@@ -3,6 +3,7 @@ package com.minerva.core;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -17,7 +18,7 @@ class AiActivityGateTests {
     void skipsHeartbeatWhileForegroundConversationIsActive() {
         var heartbeatRan = new AtomicBoolean();
 
-        try (var ignored = gate.beginConversation()) {
+        try (var ignored = gate.tryBeginConversation().orElseThrow()) {
             assertFalse(gate.tryRunHeartbeat(() -> heartbeatRan.set(true)));
         }
 
@@ -33,9 +34,20 @@ class AiActivityGateTests {
         }));
 
         var foregroundStarted = new AtomicBoolean();
-        try (var ignored = gate.beginConversation()) {
+        try (var ignored = gate.tryBeginConversation().orElseThrow()) {
             foregroundStarted.set(true);
         }
         assertTrue(foregroundStarted.get());
+    }
+
+    @Test
+    void rejectsForegroundRequestImmediatelyDuringHeartbeat() {
+        var foregroundStarted = new AtomicBoolean();
+
+        assertTrue(gate.tryRunHeartbeat(() -> foregroundStarted.set(
+                CompletableFuture.supplyAsync(() -> gate.tryBeginConversation().isPresent()).join()
+        )));
+
+        assertFalse(foregroundStarted.get());
     }
 }

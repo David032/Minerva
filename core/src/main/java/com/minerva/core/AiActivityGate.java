@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.Optional;
 
 /**
  * Coordinates foreground AI requests with exclusive background heartbeat runs.
@@ -16,14 +17,16 @@ public class AiActivityGate {
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(true);
 
     /**
-     * Acquires a foreground activity slot.
+     * Tries to acquire a foreground activity slot without waiting.
      *
-     * @return a lease that releases the slot when closed
+     * @return a lease that releases the slot when closed, or empty while a heartbeat is running
      */
-    public ConversationLease beginConversation() {
+    public Optional<ConversationLease> tryBeginConversation() {
         Lock conversationLock = lock.readLock();
-        conversationLock.lock();
-        return new ConversationLease(conversationLock);
+        if (!conversationLock.tryLock()) {
+            return Optional.empty();
+        }
+        return Optional.of(new ConversationLease(conversationLock));
     }
 
     /**

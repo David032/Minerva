@@ -24,7 +24,7 @@ Create, list, and cancel one-time reminders in chat, or manage them from the cha
 
 ## Heartbeat
 
-Minerva can run a scheduled assistant check using instructions in `heartbeat.md` at the root of its data directory (`MINERVA_DATA_DIR`, or `~/MinervaOS` by default). By default, Minerva checks once at the top of each UTC hour. A missing or empty file is ignored. If an AI request is active at the scheduled tick, that tick is skipped rather than queued; the next check is at the following hour. Set `MINERVA_HEARTBEAT_ENABLED=false` to disable it, or use `MINERVA_HEARTBEAT_CRON` and `MINERVA_HEARTBEAT_ZONE` to change the schedule. A running heartbeat holds the exclusive AI activity slot, so new AI requests wait for it to finish. Heartbeat instructions and session history are backed up with other local user data.
+Minerva can run a scheduled assistant check using instructions in `heartbeat.md` at the root of its data directory (`MINERVA_DATA_DIR`, or `~/MinervaOS` by default). By default, Minerva checks once at the top of each UTC hour. A missing or empty file is ignored. If an AI request is active at the scheduled tick, that tick is skipped rather than queued; the next check is at the following hour. Set `MINERVA_HEARTBEAT_ENABLED=false` to disable it, or use `MINERVA_HEARTBEAT_CRON` and `MINERVA_HEARTBEAT_ZONE` to change the schedule. A running heartbeat holds the exclusive AI activity slot; new AI requests receive a busy message and can be retried after it finishes. Heartbeat instructions and session history are backed up with other local user data.
 
 ## Local backup and restore
 

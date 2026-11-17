@@ -191,7 +191,11 @@ public class ConversationManager {
             logger.warn("Null or empty message");
             return "";
         }
-        try (var ignored = activityGate.beginConversation()) {
+        var lease = activityGate.tryBeginConversation();
+        if (lease.isEmpty()) {
+            return AiBusyException.USER_MESSAGE;
+        }
+        try (var ignored = lease.get()) {
             return aiChatClient
                     .prompt()
                     .system(system -> system.text(currentPrompt()))
@@ -247,7 +251,7 @@ public class ConversationManager {
 
         String finalRequest = request;
         logger.info("Received image message: {}", finalRequest);
-        try (var ignored = activityGate.beginConversation()) {
+        try (var ignored = activityGate.tryBeginConversation().orElseThrow(AiBusyException::new)) {
             String response = aiChatClient.prompt()
                     .system(system -> system.text(currentPrompt()))
                     .user(u -> u.text(finalRequest)
@@ -267,7 +271,7 @@ public class ConversationManager {
     /// @return The processed audio file.
     /// @throws IOException If an I/O error occurs during file processing.
     public static File audioProcessing(String pathToFile) throws IOException {
-        try (var ignored = activityGate.beginConversation()) {
+        try (var ignored = activityGate.tryBeginConversation().orElseThrow(AiBusyException::new)) {
             //Convert audio file to text
             MultiValueMap<String, File> body = new LinkedMultiValueMap<>();
             var pathToResource = new FileUrlResource(pathToFile);
