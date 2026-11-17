@@ -6,6 +6,7 @@ import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestC
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -18,11 +19,19 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import java.time.Duration;
 import java.util.Objects;
 
+import static org.mockito.Mockito.verify;
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
 @Import(MinervaTestConfiguration.class)
 @Tag("ContinuousIntegration")
 public class MinervaApiTests {
+    @Autowired
+    private HeartbeatScheduler heartbeatScheduler;
+
+    @MockitoBean
+    private HeartbeatService heartbeatService;
+
     @Autowired
     private PostgreSQLContainer postgresContainer;
 
@@ -38,7 +47,7 @@ public class MinervaApiTests {
     @BeforeEach
     void configureRestTestClient() {
         var requestFactory = new JdkClientHttpRequestFactory();
-        requestFactory.setReadTimeout(Duration.ofSeconds(27000));
+        requestFactory.setReadTimeout(Duration.ofSeconds(30000));
 
         restTestClient = RestTestClient.bindToServer(requestFactory)
                 .baseUrl("http://localhost:" + port)
@@ -56,6 +65,13 @@ public class MinervaApiTests {
     }
 
     @Test
+    void scheduledHeartbeatDelegatesToHeartbeatService() {
+        heartbeatScheduler.runHourlyHeartbeat();
+
+        verify(heartbeatService).runIfIdle();
+    }
+
+    @Test
     void ChatPageAndClientAssetsAreServed() {
         restTestClient.get().uri("/")
                 .exchange()
@@ -63,6 +79,9 @@ public class MinervaApiTests {
                 .expectBody(String.class)
                 .value(body -> {
                     Assertions.assertTrue(body.contains("What can I help you with?"));
+                    Assertions.assertTrue(body.contains("id=\"message-form\""));
+                    Assertions.assertTrue(body.contains("id=\"message-input\""));
+                    Assertions.assertTrue(body.contains("Customize personality"));
                     Assertions.assertTrue(body.contains("/chat.css"));
                     Assertions.assertTrue(body.contains("/chat.js"));
                 });

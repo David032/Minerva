@@ -10,6 +10,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
 
 import java.io.IOException;
+import java.util.List;
 
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
@@ -105,5 +106,54 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy this image.")));
 
         verify(service).processImage(any(), org.mockito.ArgumentMatchers.isNull(), eq("Describe this image."));
+    }
+
+    @Test
+    void processesMultipleHtmlFilesAndDisplaysEachFailedFilename() throws Exception {
+        when(service.processHtmlBatch(any(), eq("Shared guidance"))).thenReturn(
+                new MediaPersonalityService.BatchSubmissionResult(
+                        1, 2, 1,
+                        List.of(new MediaPersonalityService.FileFailure("broken.html", "No readable HTML content.")),
+                        "I enjoy botanical art."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "htmlFiles", "good.html", "text/html", "<p>Example</p>".getBytes()))
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "htmlFiles", "broken.html", "text/html", "<p></p>".getBytes()))
+                        .param("guidance", "Shared guidance"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Processed 1 HTML file")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("broken.html")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("No readable HTML content.")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy botanical art.")));
+    }
+
+    @Test
+    void rendersAndValidatesScoredInterestPreferences() throws Exception {
+        when(service.loadScoredInterests()).thenReturn(
+                List.of(new InterestMemoryStore.ScoredInterest("Botanical art", 4)));
+        when(service.saveScoredInterest("Botanical art", 0))
+                .thenThrow(new IllegalArgumentException("Interest scores must be from 1 to 5."));
+
+        mockMvc.perform(get("/personality/interests"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("1 (strongly negative)")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("5 (strongly positive)")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Botanical art")));
+
+        mockMvc.perform(multipart("/personality/interests")
+                        .param("keyword", "Botanical art")
+                        .param("score", "0"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Interest scores must be from 1 to 5.")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Botanical art")));
+
+        mockMvc.perform(multipart("/personality/interests")
+                        .param("keyword", "Botanical art")
+                        .param("score", "five"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Interest scores must be whole numbers from 1 to 5.")));
     }
 }

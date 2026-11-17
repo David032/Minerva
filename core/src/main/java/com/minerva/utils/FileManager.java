@@ -8,9 +8,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -25,9 +28,10 @@ public class FileManager {
     private final Path logsPath;
 
     private FileManager() {
-        single_instance = this;
-        String userHome = System.getProperty("user.home");
-        minervaPath = Paths.get(userHome, "MinervaOS");
+        String configuredDataDirectory = System.getenv("MINERVA_DATA_DIR");
+        minervaPath = configuredDataDirectory == null || configuredDataDirectory.isBlank()
+                ? Paths.get(System.getProperty("user.home"), "MinervaOS")
+                : Paths.get(configuredDataDirectory);
         uploadPath = minervaPath.resolve("uploads");
         skillsPath = minervaPath.resolve("skills");
         memoriesPath = minervaPath.resolve("memories");
@@ -63,17 +67,12 @@ public class FileManager {
     }
 
     private void createDirectories(boolean publishSystemProperties) {
-        try {
-            Files.createDirectories(minervaPath);
-            Files.createDirectories(uploadPath);
-            Files.createDirectories(skillsPath);
-            Files.createDirectories(memoriesPath);
-            Files.createDirectories(logsPath);
-            logger.info("Created/verified MinervaOS Directory");
-            logger.debug("Located at: {}", uploadPath);
-        } catch (IOException e) {
-            logger.error(e.getMessage());
-        }
+        createDirectory(minervaPath, "data root");
+        migrateLegacyData();
+        createDirectory(uploadPath, "uploads");
+        createDirectory(skillsPath, "skills");
+        createDirectory(memoriesPath, "memories");
+        createDirectory(logsPath, "logs");
         if (publishSystemProperties) {
             System.setProperty("app.dir", minervaPath.toAbsolutePath().toString());
             System.setProperty("app.dir.uploads", uploadPath.toAbsolutePath().toString());
@@ -81,6 +80,108 @@ public class FileManager {
             System.setProperty("app.dir.memories", memoriesPath.toAbsolutePath().toString());
             System.setProperty("app.dir.logs", logsPath.toAbsolutePath().toString());
         }
+    }
+
+    private void createDirectory(Path path, String name) {
+        boolean alreadyExists = Files.isDirectory(path);
+        try {
+            Files.createDirectories(path);
+            logger.info("Minerva {} directory {}: {}", name,
+                    alreadyExists ? "already exists" : "created", path.toAbsolutePath());
+        } catch (IOException e) {
+            logger.error("Failed to create Minerva {} directory at {}", name, path.toAbsolutePath(), e);
+            throw new IllegalStateException("Could not create Minerva " + name + " directory at "
+                    + path.toAbsolutePath(), e);
+        }
+    }
+
+    private void migrateLegacyData() {
+        Path legacyRoot = minervaPath.resolve("app").resolve("MinervaOS");
+        if (!Files.isDirectory(legacyRoot)) {
+            return;
+        }
+
+        try (var entries = Files.list(legacyRoot)) {
+            for (Path entry : entries.toList()) {
+                if (entry.getFileName().toString().startsWith(".legacy-migration-")) {
+                    continue;
+                }
+                Path destination = minervaPath.resolve(entry.getFileName());
+                if (Files.exists(destination)) {
+                    logger.warn("Keeping existing Minerva data at {}; legacy data remains at {}",
+                            destination.toAbsolutePath(), entry.toAbsolutePath());
+                    continue;
+                }
+
+                Path staging = Files.createTempDirectory(minervaPath, ".legacy-migration-");
+                try {
+                    Path stagedEntry = staging.resolve(entry.getFileName());
+                    copyTree(entry, stagedEntry);
+                    Files.move(stagedEntry, destination);
+                    logger.info("Migrated legacy Minerva data from {} to {}",
+                            entry.toAbsolutePath(), destination.toAbsolutePath());
+                } catch (IOException e) {
+                    logger.error("Failed to migrate legacy Minerva data from {} to {}",
+                            entry.toAbsolutePath(), destination.toAbsolutePath(), e);
+                    throw new IllegalStateException("Could not migrate legacy Minerva data from "
+                            + entry.toAbsolutePath() + " to " + destination.toAbsolutePath(), e);
+                } finally {
+                    try {
+                        deleteTree(staging);
+                    } catch (IOException e) {
+                        logger.error("Failed to remove Minerva migration staging directory {}",
+                                staging.toAbsolutePath(), e);
+                        throw new IllegalStateException("Could not remove Minerva migration staging directory at "
+                                + staging.toAbsolutePath(), e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            logger.error("Failed to inspect legacy Minerva data at {}", legacyRoot.toAbsolutePath(), e);
+            throw new IllegalStateException("Could not inspect legacy Minerva data at "
+                    + legacyRoot.toAbsolutePath(), e);
+        }
+    }
+
+    private static void copyTree(Path source, Path destination) throws IOException {
+        Files.walkFileTree(source, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) throws IOException {
+                Files.createDirectories(destination.resolve(source.relativize(directory)));
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                if (attributes.isSymbolicLink()) {
+                    throw new IOException("Symbolic links are not allowed in legacy data: " + file);
+                }
+                Files.copy(file, destination.resolve(source.relativize(file)));
+                return FileVisitResult.CONTINUE;
+            }
+        });
+    }
+
+    private static void deleteTree(Path root) throws IOException {
+        if (Files.notExists(root)) {
+            return;
+        }
+        Files.walkFileTree(root, new SimpleFileVisitor<>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path directory, IOException exception) throws IOException {
+                if (exception != null) {
+                    throw exception;
+                }
+                Files.delete(directory);
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     public Path UploadFile(String fileName, MultipartFile content) throws IOException {
@@ -96,7 +197,7 @@ public class FileManager {
         try {
             Files.delete(path);
         }  catch (IOException e) {
-            logger.error(e.getMessage());
+            logger.error("Failed to delete uploaded file at {}", path.toAbsolutePath(), e);
         }
     }
 
@@ -116,6 +217,15 @@ public class FileManager {
 
     public Path getPersonalityPromptPath() {
         return minervaPath.resolve("personality.md");
+    }
+
+    /**
+     * Gets the local heartbeat instruction file path.
+     *
+     * @return path to {@code heartbeat.md} in Minerva's data root
+     */
+    public Path getHeartbeatFilePath() {
+        return minervaPath.resolve("heartbeat.md");
     }
 
     /// <summary>

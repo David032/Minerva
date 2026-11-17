@@ -32,6 +32,53 @@ class FileManagerTests {
     }
 
     @Test
+    void locatesHeartbeatFileInDataRoot() {
+        Path root = tempDirectory.resolve("MinervaOS");
+        var manager = new FileManager(root);
+
+        assertEquals(root.resolve("heartbeat.md"), manager.getHeartbeatFilePath());
+    }
+
+    @Test
+    void migratesExistingDataFromThePreviousHomeVolumeLayout() throws IOException {
+        Path root = tempDirectory.resolve("MinervaOS");
+        Path legacySkill = root.resolve("app/MinervaOS/skills/example/SKILL.md");
+        Files.createDirectories(legacySkill.getParent());
+        Files.writeString(legacySkill, "legacy skill");
+
+        new FileManager(root);
+
+        assertEquals("legacy skill", Files.readString(root.resolve("skills/example/SKILL.md")));
+        assertTrue(Files.exists(legacySkill));
+    }
+
+    @Test
+    void preservesCurrentDataWhenThePreviousVolumeAlsoContainsThatDirectory() throws IOException {
+        Path root = tempDirectory.resolve("MinervaOS");
+        Path currentSkill = root.resolve("skills/example/SKILL.md");
+        Path legacySkill = root.resolve("app/MinervaOS/skills/example/SKILL.md");
+        Files.createDirectories(currentSkill.getParent());
+        Files.createDirectories(legacySkill.getParent());
+        Files.writeString(currentSkill, "current");
+        Files.writeString(legacySkill, "legacy");
+
+        new FileManager(root);
+
+        assertEquals("current", Files.readString(currentSkill));
+        assertEquals("legacy", Files.readString(legacySkill));
+    }
+
+    @Test
+    void failsClearlyWhenARequiredDirectoryCannotBeCreated() throws IOException {
+        Path root = tempDirectory.resolve("not-a-directory");
+        Files.writeString(root, "file");
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> new FileManager(root));
+
+        assertTrue(error.getMessage().contains(root.toAbsolutePath().toString()));
+    }
+
+    @Test
     void writesReadsAndDeletesUploadedFile() throws IOException {
         var manager = new FileManager(tempDirectory.resolve("MinervaOS"));
         var contents = new byte[] {1, 2, 3, 4};

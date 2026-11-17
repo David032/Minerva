@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Tag("Integration")
+@Tag("ContinuousIntegration")
 class RssFeedsIntegrationTests {
     private static final String GUARDIAN_URL = "https://www.theguardian.com/uk/rss";
     private static final String BBC_URL = "https://feeds.bbci.co.uk/news/uk/rss.xml";

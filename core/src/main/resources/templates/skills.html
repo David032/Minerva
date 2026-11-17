@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f2">
+    <title>Skills | Minerva</title>
+    <link rel="stylesheet" href="/personality.css">
+</head>
+<body>
+<main class="page">
+    <header class="header">
+        <div>
+            <p class="eyebrow">MINERVA · SKILLS</p>
+            <h1>Import a skill</h1>
+            <p class="intro">Add a skill from a ZIP archive or a public HTTPS source.</p>
+        </div>
+        <nav class="header-links">
+            <a href="/">Back to chat</a>
+        </nav>
+    </header>
+
+    <p class="notice success" role="status" th:if="${success}" th:text="${success}"></p>
+    <p class="notice error" role="alert" th:if="${error}" th:text="${error}"></p>
+
+    <section class="card">
+        <h2>Upload a ZIP archive</h2>
+        <form action="/skills/upload" method="post" enctype="multipart/form-data">
+            <label for="file">Skill archive</label>
+            <input id="file" name="file" type="file" accept=".zip,application/zip" required>
+            <p class="hint">The archive must contain one or more skill directories with a SKILL.md file. ZIP uploads are limited to 10 MB. Existing skill names are never replaced.</p>
+            <button type="submit">Import ZIP</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Import from a URL or Git repository</h2>
+        <form action="/skills/import" method="post">
+            <label for="sourceUrl">Public HTTPS ZIP URL or Git repository URL</label>
+            <input id="sourceUrl" name="sourceUrl" type="url" maxlength="2048"
+                   placeholder="https://github.com/example/skill-repository" required>
+            <p class="hint">Repository roots and nested skill directories are supported. Only HTTPS sources are accepted; existing skill names are never replaced.</p>
+            <button type="submit">Import source</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>

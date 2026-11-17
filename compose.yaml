@@ -1,5 +1,16 @@
 name: Minerva-Dev
 services:
+  data-init:
+    build:
+      context: ./core
+    image: minerva-core:local
+    user: "0:0"
+    entrypoint: ["sh", "-c"]
+    command: ["chown 10001:10001 /MinervaOS"]
+    restart: "no"
+    volumes:
+      - core-data:/MinervaOS
+
   core:
     build:
       context: ./core
@@ -13,6 +24,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       SPRING_AI_OPENAI_BASE_URL: http://ollama:11434/
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/postgres
+      MINERVA_DATA_DIR: /MinervaOS
       TERMINAL_INPUT: False
       IS_PI_5: False
       IO_KEY: ${IO_KEY:?Set IO_KEY in .env}
@@ -20,10 +32,12 @@ services:
       BRAVE_API_KEY: ${BRAVE_API_KEY:? Set BRAVE_API_KEY in .env}
     volumes:
       - core-tmp:/tmp
-      - core-data:/home
+      - core-data:/MinervaOS
     networks:
       - minerva-network
     depends_on:
+      data-init:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       voice:

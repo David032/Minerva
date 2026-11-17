@@ -22,7 +22,7 @@ RUN apt-get update \
     && useradd --system --uid 10001 --gid 10001 --create-home app
 
 COPY --from=build /workspace/target/*.jar /app/app.jar
-RUN chown -R app:app /app
+RUN mkdir -p /MinervaOS && chown -R app:app /app /MinervaOS
 USER app
 
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"

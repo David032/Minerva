@@ -14,7 +14,7 @@ defaults:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-26.04-arm
+    runs-on: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' && 'ubuntu-latest' || 'ubuntu-26.04-arm' }}
     permissions:
       contents: read
       packages: write
