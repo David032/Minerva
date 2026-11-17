@@ -13,7 +13,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Converts fetched media into bounded image assets that can be analyzed by the local model.
+ * Converts fetched media into bounded image assets that can be analysed by the local model.
  */
 @Component
 public class MediaPreprocessor {

@@ -229,7 +229,7 @@ public class ConversationManager {
     /// <summary>
     /// Seeks an opinion on an image by sending it to the AI along with a user request.
     /// </summary>
-    /// @param pathToFile The path to the image file to analyze.
+    /// @param pathToFile The path to the image file to analyse.
     /// @param request The user request or question regarding the image.
     /// @return The AI's response to the image and request.
     /// @throws MalformedURLException If the path to the image file is malformed.
@@ -240,7 +240,7 @@ public class ConversationManager {
     /**
      * Seeks an opinion on an image using the configured chat model and its actual MIME type.
      *
-     * @param pathToFile path to the image file to analyze
+     * @param pathToFile path to the image file to analyse
      * @param request user request or question about the image
      * @param imageMimeType MIME type used to attach the image
      * @return the model's response to the image and request

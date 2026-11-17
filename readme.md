@@ -1,16 +1,16 @@
 # Minerva
 Minerva is an experimental, entirely local AI system, designed for the raspberry pi 5. Minerva eschews fast responses in favour of slower and more thoughtful responses, 
-and is *intended* to be a personal assistant that can be used for a variety of tasks. Minerva is designed to be semi-modular, with functionality implemented either as java-based tools or advisors, or as markdown skills.
+and is *intended* to be a personal assistant that can be used for a variety of tasks. Minerva is designed to be semi-modular, with functionality implemented either as Java-based tools or advisors, or as Markdown skills.
 
 # Capabilities(W.i.P)
 * Short and long term memory
 * API based interface
-* Media-driven personality customization
+* Media-driven personality customisation
 
-## Personality customization
+## Personality customisation
 Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide a public image URL. Image comments and document guidance are optional; without an image comment, Minerva first asks what the image is about. Minerva stores interest tags and a separate personality prompt in its local `MinervaOS` data directory. HTML-referenced public images, GIFs, and videos are fetched with size and time limits; GIFs and sampled video frames are prepared for the local model. Private-network and localhost URLs are rejected.
 
-The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyze referenced videos.
+The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyse referenced videos.
 
 ## Skills
 
@@ -20,7 +20,7 @@ The assistant can also find and install skills using its import tool. This uses 
 
 ## Reminders
 
-Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Due reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
+Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Upcoming reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
 
 ## Heartbeat
 
@@ -72,7 +72,7 @@ The Compose data volume is mounted at the dedicated filesystem-root directory `/
 # Raspberry PI Quickstart
 If you simply want to try this out on a Raspberry Pi 5 8/16GB(I wouldn't recommend this on anything else), you can quickly get started by doing the following:
 * Create a directory and drop the prod-compose file into it
-* Create an .env file, with the calues outline above
+* Create an .env file, with the values outline above
 * Create a folder in there called db, and in it create a file called password.txt with a password that matches what's in the .env
 * Bring up the docker compose file
 
