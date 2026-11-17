@@ -2,6 +2,8 @@ package com.minerva.core;
 
 import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.tools.DateTimeTools;
+import com.minerva.skills.SkillImportService;
+import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
@@ -11,6 +13,7 @@ import org.springaicommunity.agent.advisors.AutoMemoryToolsAdvisor;
 import org.springaicommunity.agent.tools.*;
 import org.springaicommunity.agent.utils.AgentEnvironment;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.session.SessionService;
@@ -30,10 +33,15 @@ import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
 
 public class ConversationManager {
-    private static ChatClient aiChatClient;
+    private static volatile ChatClient aiChatClient;
+    private static ChatClient.Builder baseChatClientBuilder;
+    private static Advisor[] activeAdvisors;
+    private static Object[] activeTools;
+    private static String activeSystemPrompt;
     private static RestClient voiceClient;
     static final Logger logger = LoggerFactory.getLogger(ConversationManager.class);
 
@@ -51,12 +59,14 @@ public class ConversationManager {
     /// @param builder The ChatClient.Builder used to build the AI chat client.
     /// @param sessionService The SessionService used for managing user sessions.
     /// @throws IOException If an I/O error occurs while reading the prompt files.
-    public static void Initialize(ChatClient.Builder builder, SessionService sessionService) throws IOException {
+    public static synchronized void Initialize(
+            ChatClient.Builder builder,
+            SessionService sessionService,
+            SkillImportService skillImportService
+    ) throws IOException {
+        baseChatClientBuilder = builder.clone();
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
         var pathToSkills = FileManager.getInstance().getDirectoryPath(Directory.SKILLS);
-        ResourceLoader resourceLoader = new DefaultResourceLoader();
-        String prompt = buildPrompt();
-
         SessionMemoryAdvisor sessionMemoryAdvisor = SessionMemoryAdvisor.builder(sessionService)
                 .defaultUserId("user")
                 // Compact when 20 turns accumulate, keeping the last 10 events
@@ -76,37 +86,51 @@ public class ConversationManager {
                 .memoriesDir(pathToMemories)
                 .build();
 
+        activeAdvisors = new Advisor[] {
+                sessionMemoryAdvisor,
+                longTermMemoryAdvisor,
+                shortTermMemoryAdvisor,
+                new com.minerva.advisors.LoggerAdvisor()
+        };
+        activeTools = new Object[] {
+                ShellTools.builder().build(),
+                FileSystemTools.builder().build(),
+                GrepTool.builder().build(),
+                GlobTool.builder().build(),
+                memoryTools,
+                new SkillImportTools(skillImportService)
+        };
+        if (System.getenv("BRAVE_API_KEY") != null) {
+            activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
+            activeTools[activeTools.length - 1] =
+                    BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
+        }
+        skillImportService.setSkillChangeListener(ConversationManager::refreshSkills);
+        refreshSkills();
+    }
+
+    private static synchronized void refreshSkills() throws IOException {
+        if (baseChatClientBuilder == null) {
+            return;
+        }
+        var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
+        var pathToSkills = FileManager.getInstance().getDirectoryPath(Directory.SKILLS);
+        ResourceLoader resourceLoader = new DefaultResourceLoader();
+        activeSystemPrompt = buildPrompt();
         var skillsSystem = SkillsTool.builder()
                 .addSkillsDirectory(pathToSkills)
                 .addSkillsResource(resourceLoader.getResource("classpath:/skills"))
                 .build();
-
-        var LoggerAdvisor = new com.minerva.advisors.LoggerAdvisor();
-
-        aiChatClient = builder
-                .defaultAdvisors(
-                        sessionMemoryAdvisor,
-                        longTermMemoryAdvisor,
-                        shortTermMemoryAdvisor,
-                        LoggerAdvisor
-                )
-                .defaultSystem(p -> p.text(prompt)
+        Object[] tools = Arrays.copyOf(activeTools, activeTools.length + 1);
+        tools[tools.length - 1] = skillsSystem;
+        aiChatClient = baseChatClientBuilder.clone()
+                .defaultAdvisors(activeAdvisors)
+                .defaultSystem(p -> p.text(activeSystemPrompt)
                         .param(AgentEnvironment.ENVIRONMENT_INFO_KEY, AgentEnvironment.info())
                         .param(AgentEnvironment.GIT_STATUS_KEY, AgentEnvironment.gitStatus())
                         .param("MEMORIES_ROOT_DIERCTORY", pathToMemories))
-                .defaultTools(
-                        ShellTools.builder().build(),
-                        FileSystemTools.builder().build(),
-                        GrepTool.builder().build(),
-                        GlobTool.builder().build(),
-                        memoryTools,
-                        skillsSystem)
+                .defaultTools(tools)
                 .build();
-
-        if (System.getenv("BRAVE_API_KEY") != null) {
-            var webSearch = BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
-            aiChatClient = aiChatClient.mutate().defaultTools(webSearch).build();
-        }
     }
 
     /**
