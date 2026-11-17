@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
 
 import static java.lang.IO.*;
 
-@SpringBootApplication(scanBasePackages = {"com.minerva.core", "com.minerva.api"})
+@SpringBootApplication(scanBasePackages = {"com.minerva.core", "com.minerva.api", "com.minerva.skills"})
 public class MinervaApplication {
 
     static void main(String[] args) {

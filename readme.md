@@ -12,6 +12,12 @@ Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide 
 
 The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyze referenced videos.
 
+## Skills
+
+Open `/skills` to import a ZIP archive or a public HTTPS ZIP/Git repository. Sources may contain a skill at the root or multiple nested skill directories. Each skill's `SKILL.md` must have `name` and `description` fields in YAML front matter. ZIP uploads are limited to 10 MB; imports reject unsafe archives, local/private network URLs, and name collisions without replacing existing skills. Imported skills are made available to Minerva immediately. Git repository imports require `git` on `PATH`; the Docker image includes it.
+
+The assistant can also find and install skills using its import tool. This uses web search when `BRAVE_API_KEY` is configured; otherwise, provide the assistant with a source URL. Imported skill instructions are third-party content and should be treated cautiously.
+
 ## Local backup and restore
 
 Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, and `personality.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.

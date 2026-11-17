@@ -1,6 +1,7 @@
 package com.minerva.api;
 
 import com.minerva.core.ConversationManager;
+import com.minerva.skills.SkillImportService;
 import com.minerva.utils.FileManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ai.chat.client.ChatClient;
@@ -21,8 +22,12 @@ public class ConversationController {
     private final FileManager fileManager;
 
     @Autowired
-    ConversationController (ChatClient.Builder ai, SessionService sessionService) throws IOException {
-        ConversationManager.Initialize(ai, sessionService);
+    ConversationController(
+            ChatClient.Builder ai,
+            SessionService sessionService,
+            SkillImportService skillImportService
+    ) throws IOException {
+        ConversationManager.Initialize(ai, sessionService, skillImportService);
         fileManager = FileManager.getInstance();
         conversation = new ConversationOperations() {
             @Override
