@@ -1,7 +1,10 @@
 package com.minerva.core;
 
+import com.minerva.discord.DiscordListener;
 import com.minerva.utils.FileManager;
 import com.minerva.utils.OllamaConnector;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
@@ -27,6 +30,12 @@ public class MinervaApplication {
         var env = Objects.requireNonNull(app).getEnvironment();
         OllamaConnector.getInstance(env.getProperty("spring.ai.ollama.base-url"))
                 .connectToOllama(env.getProperty("spring.ai.ollama.base-url"), env.getProperty("ollama.required-model"));
+
+        if (System.getenv("DISCORD_TOKEN") != null) {
+            JDA api = JDABuilder.createDefault(System.getenv("DISCORD_TOKEN")).build();
+            api.addEventListener(new DiscordListener());
+        }
+
         if (Objects.equals(System.getenv("TERMINAL_INPUT"), "true")){
             while (true) {
                 print("> ");

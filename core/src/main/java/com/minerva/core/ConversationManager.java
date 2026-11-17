@@ -1,6 +1,7 @@
 package com.minerva.core;
 
 import com.minerva.api.personality.InterestMemoryStore;
+import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.core.reminders.ReminderTools;
 import com.minerva.skills.SkillImportService;
@@ -8,6 +9,7 @@ import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
+import net.dv8tion.jda.api.JDABuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.agent.advisors.AutoMemoryToolsAdvisor;
