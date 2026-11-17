@@ -1,5 +1,6 @@
 package com.minerva.api.personality;
 
+import com.minerva.core.AiBusyException;
 import com.minerva.core.personality.PersonalityPromptStore;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -151,6 +152,8 @@ public class MediaPersonalityService {
         String description;
         try {
             description = imageOpinionService.analyze(media.getFirst(), imageRequest);
+        } catch (AiBusyException e) {
+            throw e;
         } catch (RuntimeException e) {
             throw new IOException("Image analysis failed; the saved personality prompt was not changed.", e);
         }
@@ -203,6 +206,8 @@ public class MediaPersonalityService {
         String updatedPrompt;
         try {
             updatedPrompt = analyzer.analyze(extraction, media, currentPrompt, guidance);
+        } catch (AiBusyException e) {
+            throw e;
         } catch (RuntimeException e) {
             throw new IOException("Media analysis failed; the saved personality prompt was not changed.", e);
         }

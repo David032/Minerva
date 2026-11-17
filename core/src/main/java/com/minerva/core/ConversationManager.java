@@ -2,6 +2,7 @@ package com.minerva.core;
 
 import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.tools.DateTimeTools;
+import com.minerva.core.reminders.ReminderTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
@@ -38,11 +39,20 @@ import java.util.Arrays;
 
 public class ConversationManager {
     private static volatile ChatClient aiChatClient;
+    private static volatile ChatClient heartbeatChatClient;
     private static ChatClient.Builder baseChatClientBuilder;
     private static Advisor[] activeAdvisors;
+    private static Advisor[] heartbeatAdvisors;
     private static Object[] activeTools;
     private static String activeSystemPrompt;
     private static RestClient voiceClient;
+    private static AiActivityGate activityGate;
+    private static final String HEARTBEAT_SESSION_ID = "minerva-heartbeat";
+    private static final String HEARTBEAT_SYSTEM_PROMPT = """
+            You are performing Minerva's scheduled idle heartbeat. Follow the local operator's
+            heartbeat instructions, using available tools when they are needed. If no action is
+            needed, say so briefly. Do not claim to have completed actions that you did not complete.
+            """;
     static final Logger logger = LoggerFactory.getLogger(ConversationManager.class);
 
     /// <summary>
@@ -58,12 +68,20 @@ public class ConversationManager {
     /// </summary>
     /// @param builder The ChatClient.Builder used to build the AI chat client.
     /// @param sessionService The SessionService used for managing user sessions.
+    /// @param skillImportService service used to load and refresh imported skills.
+    /// @param dateTimeTools date/time tools exposed to the assistant.
+    /// @param reminderTools reminder tools exposed to the assistant.
+    /// @param activityGate gate shared by foreground requests and the heartbeat.
     /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static synchronized void Initialize(
             ChatClient.Builder builder,
             SessionService sessionService,
-            SkillImportService skillImportService
+            SkillImportService skillImportService,
+            DateTimeTools dateTimeTools,
+            ReminderTools reminderTools,
+            AiActivityGate activityGate
     ) throws IOException {
+        ConversationManager.activityGate = activityGate;
         baseChatClientBuilder = builder.clone();
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
         var pathToSkills = FileManager.getInstance().getDirectoryPath(Directory.SKILLS);
@@ -81,6 +99,9 @@ public class ConversationManager {
         MessageChatMemoryAdvisor shortTermMemoryAdvisor = MessageChatMemoryAdvisor
                 .builder(MessageWindowChatMemory.builder().maxMessages(20).build())
                 .build();
+        MessageChatMemoryAdvisor heartbeatShortTermMemoryAdvisor = MessageChatMemoryAdvisor
+                .builder(MessageWindowChatMemory.builder().maxMessages(20).build())
+                .build();
 
         AutoMemoryTools memoryTools = AutoMemoryTools.builder()
                 .memoriesDir(pathToMemories)
@@ -92,13 +113,21 @@ public class ConversationManager {
                 shortTermMemoryAdvisor,
                 new com.minerva.advisors.LoggerAdvisor()
         };
+        heartbeatAdvisors = new Advisor[] {
+                sessionMemoryAdvisor,
+                longTermMemoryAdvisor,
+                heartbeatShortTermMemoryAdvisor,
+                new com.minerva.advisors.LoggerAdvisor()
+        };
         activeTools = new Object[] {
                 ShellTools.builder().build(),
                 FileSystemTools.builder().build(),
                 GrepTool.builder().build(),
                 GlobTool.builder().build(),
                 memoryTools,
-                new SkillImportTools(skillImportService)
+                new SkillImportTools(skillImportService),
+                dateTimeTools,
+                reminderTools
         };
         if (System.getenv("BRAVE_API_KEY") != null) {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
@@ -123,8 +152,13 @@ public class ConversationManager {
                 .build();
         Object[] tools = Arrays.copyOf(activeTools, activeTools.length + 1);
         tools[tools.length - 1] = skillsSystem;
-        aiChatClient = baseChatClientBuilder.clone()
-                .defaultAdvisors(activeAdvisors)
+        aiChatClient = buildChatClient(activeAdvisors, tools, pathToMemories);
+        heartbeatChatClient = buildChatClient(heartbeatAdvisors, tools, pathToMemories);
+    }
+
+    private static ChatClient buildChatClient(Advisor[] advisors, Object[] tools, String pathToMemories) {
+        return baseChatClientBuilder.clone()
+                .defaultAdvisors(advisors)
                 .defaultSystem(p -> p.text(activeSystemPrompt)
                         .param(AgentEnvironment.ENVIRONMENT_INFO_KEY, AgentEnvironment.info())
                         .param(AgentEnvironment.GIT_STATUS_KEY, AgentEnvironment.gitStatus())
@@ -157,15 +191,37 @@ public class ConversationManager {
             logger.warn("Null or empty message");
             return "";
         }
-        var response = aiChatClient
+        var lease = activityGate.tryBeginConversation();
+        if (lease.isEmpty()) {
+            return AiBusyException.USER_MESSAGE;
+        }
+        try (var ignored = lease.get()) {
+            return aiChatClient
+                    .prompt()
+                    .system(system -> system.text(currentPrompt()))
+                    .user(message)
+                    .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
+                    .call()
+                    .content();
+        }
+    }
+
+    /**
+     * Runs the scheduled heartbeat in its isolated conversation history.
+     *
+     * <p>The caller must hold the exclusive idle slot from {@link AiActivityGate}.</p>
+     *
+     * @param instructions contents of the configured heartbeat file
+     * @return assistant response
+     */
+    public static String sendHeartbeat(String instructions) {
+        return heartbeatChatClient
                 .prompt()
-                .system(system -> system.text(currentPrompt()))
-                .tools(new DateTimeTools())
-                .user(message)
-                .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
+                .system(system -> system.text(currentPrompt() + "\n\n" + HEARTBEAT_SYSTEM_PROMPT))
+                .user("Follow these recurring heartbeat instructions from the local operator:\n\n" + instructions)
+                .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, HEARTBEAT_SESSION_ID))
                 .call()
                 .content();
-        return response;
     }
 
     /// <summary>
@@ -195,15 +251,17 @@ public class ConversationManager {
 
         String finalRequest = request;
         logger.info("Received image message: {}", finalRequest);
-        String response = aiChatClient.prompt()
-                .system(system -> system.text(currentPrompt()))
-                .user(u -> u.text(finalRequest)
-                        .media(imageMimeType, pathToResource))
-                .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
-                .call()
-                .content();
-        logger.info("Responding to image message with: {}", response);
-        return  response;
+        try (var ignored = activityGate.tryBeginConversation().orElseThrow(AiBusyException::new)) {
+            String response = aiChatClient.prompt()
+                    .system(system -> system.text(currentPrompt()))
+                    .user(u -> u.text(finalRequest)
+                            .media(imageMimeType, pathToResource))
+                    .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
+                    .call()
+                    .content();
+            logger.info("Responding to image message with: {}", response);
+            return response;
+        }
     }
 
     /// <summary>
@@ -213,36 +271,37 @@ public class ConversationManager {
     /// @return The processed audio file.
     /// @throws IOException If an I/O error occurs during file processing.
     public static File audioProcessing(String pathToFile) throws IOException {
-        //Convert audio file to text
-        MultiValueMap<String, File> body = new LinkedMultiValueMap<>();
-        var pathToResource = new FileUrlResource(pathToFile);
-        body.add("file", pathToResource.getFile());
-        var convertedText = voiceClient.post().uri("/speech").body(body).retrieve().body(String.class);
-        String response;
-        //Process the text
-        if  (convertedText != null) {
-            response = aiChatClient.prompt()
-                    .system(system -> system.text(currentPrompt()))
-                    .user(u -> u.text(convertedText))
-                    .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
-                    .call()
-                    .content();
+        try (var ignored = activityGate.tryBeginConversation().orElseThrow(AiBusyException::new)) {
+            //Convert audio file to text
+            MultiValueMap<String, File> body = new LinkedMultiValueMap<>();
+            var pathToResource = new FileUrlResource(pathToFile);
+            body.add("file", pathToResource.getFile());
+            var convertedText = voiceClient.post().uri("/speech").body(body).retrieve().body(String.class);
+            String response;
+            //Process the text
+            if (convertedText != null) {
+                response = aiChatClient.prompt()
+                        .system(system -> system.text(currentPrompt()))
+                        .user(u -> u.text(convertedText))
+                        .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
+                        .call()
+                        .content();
 
-        }
-        else {
-            response = "No input provided";
-        }
-        //Convert the response back to audio
-        var responseAudio = voiceClient
-                .post()
-                .uri("/speech?text={textToConvert}", response)
-                .retrieve()
-                .body(MultipartFile.class);
+            } else {
+                response = "No input provided";
+            }
+            //Convert the response back to audio
+            var responseAudio = voiceClient
+                    .post()
+                    .uri("/speech?text={textToConvert}", response)
+                    .retrieve()
+                    .body(MultipartFile.class);
 
-        assert responseAudio != null;
-        var pathToAudio = FileManager.getInstance().UploadFile(responseAudio.getOriginalFilename(), responseAudio);
-        //Return the audio
-        return FileManager.getInstance().GetFile(pathToAudio);
+            assert responseAudio != null;
+            var pathToAudio = FileManager.getInstance().UploadFile(responseAudio.getOriginalFilename(), responseAudio);
+            //Return the audio
+            return FileManager.getInstance().GetFile(pathToAudio);
+        }
     }
 
     private static String currentPrompt() {

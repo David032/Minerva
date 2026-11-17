@@ -18,9 +18,17 @@ Open `/skills` to import a ZIP archive or a public HTTPS ZIP/Git repository. Sou
 
 The assistant can also find and install skills using its import tool. This uses web search when `BRAVE_API_KEY` is configured; otherwise, provide the assistant with a source URL. Imported skill instructions are third-party content and should be treated cautiously.
 
+## Reminders
+
+Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Due reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
+
+## Heartbeat
+
+Minerva can run a scheduled assistant check using instructions in `heartbeat.md` at the root of its data directory (`MINERVA_DATA_DIR`, or `~/MinervaOS` by default). By default, Minerva checks once at the top of each UTC hour. A missing or empty file is ignored. If an AI request is active at the scheduled tick, that tick is skipped rather than queued; the next check is at the following hour. Set `MINERVA_HEARTBEAT_ENABLED=false` to disable it, or use `MINERVA_HEARTBEAT_CRON` and `MINERVA_HEARTBEAT_ZONE` to change the schedule. A running heartbeat holds the exclusive AI activity slot; new AI requests receive a busy message and can be retried after it finishes. Heartbeat instructions and session history are backed up with other local user data.
+
 ## Local backup and restore
 
-Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, and `personality.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.
+Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, `personality.md`, and `heartbeat.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.
 
 With the Compose stack running, create a backup at a path outside the repository:
 

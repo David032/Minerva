@@ -219,6 +219,15 @@ public class FileManager {
         return minervaPath.resolve("personality.md");
     }
 
+    /**
+     * Gets the local heartbeat instruction file path.
+     *
+     * @return path to {@code heartbeat.md} in Minerva's data root
+     */
+    public Path getHeartbeatFilePath() {
+        return minervaPath.resolve("heartbeat.md");
+    }
+
     /// <summary>
     /// Gets a file from the specified path.
     /// </summary>
