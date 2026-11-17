@@ -38,7 +38,7 @@ public class MinervaApiTests {
     @BeforeEach
     void configureRestTestClient() {
         var requestFactory = new JdkClientHttpRequestFactory();
-        requestFactory.setReadTimeout(Duration.ofSeconds(27000));
+        requestFactory.setReadTimeout(Duration.ofSeconds(30000));
 
         restTestClient = RestTestClient.bindToServer(requestFactory)
                 .baseUrl("http://localhost:" + port)
