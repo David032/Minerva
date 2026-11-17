@@ -2,22 +2,19 @@ package com.minerva.core;
 
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.web.servlet.client.RestTestClient;
-import org.springframework.web.client.RestClient;
+import org.springframework.util.LinkedMultiValueMap;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.test.web.servlet.client.RestTestClient;
 import java.time.Duration;
-import java.util.Objects;
 
 import static org.mockito.Mockito.verify;
 
@@ -116,13 +113,17 @@ public class MinervaApiTests {
 
     @Test
     void ImageInteraction() {
-        restTestClient
-                .post().uri(
-                        uriBuilder ->
-                                uriBuilder.host("localhost").port(port)
-                                .path("/image").queryParam("message","What do you think about this image?")
-                                        .queryParam("imagePath", "src/test/resources/TestImage.jpg")
-                                        .build()).exchange().expectBody(String.class);
+        var multipartData = new LinkedMultiValueMap<String, Object>();
+        multipartData.add("message", "What do you think about this image?");
+        multipartData.add("image", new ClassPathResource("TestImage.jpg"));
+
+        restTestClient.post().uri("/image")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(multipartData)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(response -> Assertions.assertFalse(response.isBlank()));
     }
 
     @Test

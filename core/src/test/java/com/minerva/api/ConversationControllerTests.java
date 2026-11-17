@@ -4,6 +4,8 @@ import com.minerva.utils.FileManager;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,6 +18,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Tag("Unit")
 class ConversationControllerTests {
@@ -31,16 +36,20 @@ class ConversationControllerTests {
     }
 
     @Test
-    void uploadsImageForAnalysisAndDeletesItAfterward() throws IOException {
+    void acceptsMultipartImageUploadAndDeletesItAfterward() throws Exception {
         var operations = mock(ConversationController.ConversationOperations.class);
         var fileManager = mock(FileManager.class);
         var image = new MockMultipartFile("image", "photo.jpg", "image/jpeg", new byte[] {1, 2});
         var savedPath = Path.of("uploads", "photo.jpg");
         when(fileManager.UploadFile("photo.jpg", image)).thenReturn(savedPath);
         when(operations.seekImageOpinion(savedPath.toString(), "describe this")).thenReturn("image response");
-        var controller = new ConversationController(operations, fileManager);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(new ConversationController(operations, fileManager)).build();
 
-        assertEquals("image response", controller.image("describe this", image));
+        mockMvc.perform(multipart("/image")
+                        .file(image)
+                        .param("message", "describe this"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("image response"));
 
         verify(operations).seekImageOpinion(savedPath.toString(), "describe this");
         verify(fileManager).DeleteFile("photo.jpg");
