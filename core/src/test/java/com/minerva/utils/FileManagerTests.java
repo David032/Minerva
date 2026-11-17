@@ -32,6 +32,14 @@ class FileManagerTests {
     }
 
     @Test
+    void locatesHeartbeatFileInDataRoot() {
+        Path root = tempDirectory.resolve("MinervaOS");
+        var manager = new FileManager(root);
+
+        assertEquals(root.resolve("heartbeat.md"), manager.getHeartbeatFilePath());
+    }
+
+    @Test
     void migratesExistingDataFromThePreviousHomeVolumeLayout() throws IOException {
         Path root = tempDirectory.resolve("MinervaOS");
         Path legacySkill = root.resolve("app/MinervaOS/skills/example/SKILL.md");

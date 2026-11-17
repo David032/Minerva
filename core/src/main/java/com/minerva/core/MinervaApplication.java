@@ -8,12 +8,18 @@ import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryReposito
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+import java.time.Clock;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 
 import static java.lang.IO.*;
 
-@SpringBootApplication(scanBasePackages = {"com.minerva.core", "com.minerva.api", "com.minerva.skills"})
+@SpringBootApplication(scanBasePackages = {
+        "com.minerva.core", "com.minerva.api", "com.minerva.skills",
+        "com.minerva.tools"
+})
+@EnableScheduling
 public class MinervaApplication {
 
     static void main(String[] args) {
@@ -43,5 +49,15 @@ public class MinervaApplication {
     @Bean
     FileManager fileManager() {
         return FileManager.getInstance();
+    }
+
+    @Bean
+    Clock reminderClock() {
+        return Clock.systemUTC();
+    }
+
+    @Bean
+    HeartbeatAssistant heartbeatAssistant() {
+        return ConversationManager::sendHeartbeat;
     }
 }

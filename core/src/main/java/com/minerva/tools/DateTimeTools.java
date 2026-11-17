@@ -1,21 +1,22 @@
 package com.minerva.tools;
 
 import org.springframework.ai.tool.annotation.Tool;
-import org.springframework.context.i18n.LocaleContextHolder;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.ZonedDateTime;
+import java.time.ZoneId;
 
+@Component
 public class DateTimeTools {
+    private final ZoneId timeZone;
 
-    @Tool(description = "Get the current date and time in the user's timezone")
-    String getCurrentDateTime() {
-        return LocalDateTime.now().atZone(LocaleContextHolder.getTimeZone().toZoneId()).toString();
+    public DateTimeTools(@Value("${minerva.reminders.time-zone:UTC}") String timeZone) {
+        this.timeZone = ZoneId.of(timeZone);
     }
 
-    @Tool(description = "Set a user alarm for the given time, provided in ISO-8601 format")
-    String setAlarm(String time) {
-        LocalDateTime alarmTime = LocalDateTime.parse(time, DateTimeFormatter.ISO_DATE_TIME);
-        return "Alarm set for " + alarmTime;
+    @Tool(description = "Get the current date and time in Minerva's configured timezone")
+    String getCurrentDateTime() {
+        return ZonedDateTime.now(timeZone).toString();
     }
 }
