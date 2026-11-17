@@ -1,6 +1,7 @@
 package com.minerva.api;
 
 import com.minerva.core.ConversationManager;
+import com.minerva.core.AiActivityGate;
 import com.minerva.core.reminders.ReminderTools;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.skills.SkillImportService;
@@ -29,9 +30,12 @@ public class ConversationController {
             SessionService sessionService,
             SkillImportService skillImportService,
             DateTimeTools dateTimeTools,
-            ReminderTools reminderTools
+            ReminderTools reminderTools,
+            AiActivityGate activityGate
     ) throws IOException {
-        ConversationManager.Initialize(ai, sessionService, skillImportService, dateTimeTools, reminderTools);
+        ConversationManager.Initialize(
+                ai, sessionService, skillImportService, dateTimeTools, reminderTools, activityGate
+        );
         fileManager = FileManager.getInstance();
         conversation = new ConversationOperations() {
             @Override

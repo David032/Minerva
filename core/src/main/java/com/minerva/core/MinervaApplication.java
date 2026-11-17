@@ -55,4 +55,9 @@ public class MinervaApplication {
     Clock reminderClock() {
         return Clock.systemUTC();
     }
+
+    @Bean
+    HeartbeatAssistant heartbeatAssistant() {
+        return ConversationManager::sendHeartbeat;
+    }
 }

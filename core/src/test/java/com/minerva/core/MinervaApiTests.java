@@ -6,6 +6,7 @@ import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestC
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.web.servlet.client.RestTestClient;
@@ -18,11 +19,19 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import java.time.Duration;
 import java.util.Objects;
 
+import static org.mockito.Mockito.verify;
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
 @Import(MinervaTestConfiguration.class)
 @Tag("ContinuousIntegration")
 public class MinervaApiTests {
+    @Autowired
+    private HeartbeatScheduler heartbeatScheduler;
+
+    @MockitoBean
+    private HeartbeatService heartbeatService;
+
     @Autowired
     private PostgreSQLContainer postgresContainer;
 
@@ -53,6 +62,13 @@ public class MinervaApiTests {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class);
+    }
+
+    @Test
+    void scheduledHeartbeatDelegatesToHeartbeatService() {
+        heartbeatScheduler.runHourlyHeartbeat();
+
+        verify(heartbeatService).runIfIdle();
     }
 
     @Test

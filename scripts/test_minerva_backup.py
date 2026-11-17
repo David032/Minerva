@@ -32,6 +32,7 @@ class MinervaBackupTests(unittest.TestCase):
         (data_root / "skills" / "example").mkdir(parents=True)
         (data_root / "memories").mkdir()
         (data_root / "personality.md").write_text("preferences", encoding="utf-8")
+        (data_root / "heartbeat.md").write_text("Check recent events", encoding="utf-8")
         (data_root / "skills" / "example" / "SKILL.md").write_text("skill", encoding="utf-8")
         (data_root / "memories" / "MEMORY.md").write_text("memory", encoding="utf-8")
         (data_root / "logs").mkdir()
@@ -47,6 +48,7 @@ class MinervaBackupTests(unittest.TestCase):
         with zipfile.ZipFile(archive_path) as archive:
             self.assertEqual(
                 {"database.dump", "manifest.json", "data/personality.md",
+                 "data/heartbeat.md",
                  "data/skills/example/SKILL.md", "data/memories/MEMORY.md"},
                 set(archive.namelist()),
             )
@@ -54,6 +56,10 @@ class MinervaBackupTests(unittest.TestCase):
         database, restored_data = minerva_backup.validate_and_extract(archive_path, self.root / "extracted")
         self.assertEqual(database_dump.read_bytes(), database.read_bytes())
         self.assertEqual("preferences", (restored_data / "personality.md").read_text(encoding="utf-8"))
+        self.assertEqual(
+            "Check recent events",
+            (restored_data / "heartbeat.md").read_text(encoding="utf-8"),
+        )
         self.assertEqual("memory", (restored_data / "memories" / "MEMORY.md").read_text(encoding="utf-8"))
 
     def test_rejects_traversal_paths_before_extracting_files(self):
