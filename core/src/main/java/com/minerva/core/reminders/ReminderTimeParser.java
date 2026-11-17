@@ -27,7 +27,7 @@ public class ReminderTimeParser {
     }
 
     /**
-     * Parses ISO-8601 input, honoring an explicit offset or zone when present.
+     * Parses ISO-8601 input, honouring an explicit offset or zone when present.
      *
      * @param value ISO-8601 date/time input
      * @param requestedTimeZone optional IANA zone for local input without an explicit zone

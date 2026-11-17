@@ -234,7 +234,7 @@ public class RemoteMediaFetcher {
     }
 
     /**
-     * Fetched media bytes and the metadata needed to pass them to an analyzer.
+     * Fetched media bytes and the metadata needed to pass them to an analyser.
      *
      * @param source original media URI
      * @param contentType validated media content type

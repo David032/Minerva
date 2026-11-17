@@ -23,6 +23,7 @@ public class MinervaTestConfiguration {
     @Bean
     @ServiceConnection
     PostgreSQLContainer postgresContainer() {
+        //noinspection resource
         return new PostgreSQLContainer("postgres:17-alpine")
                 .withDatabaseName("postgres")
                 .withUsername("postgres")

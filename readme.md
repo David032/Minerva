@@ -20,7 +20,7 @@ The assistant can also find and install skills using its import tool. This uses 
 
 ## Reminders
 
-Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Due reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
+Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Upcoming reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
 
 ## Heartbeat
 

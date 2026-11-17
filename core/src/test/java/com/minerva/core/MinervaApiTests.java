@@ -75,6 +75,7 @@ public class MinervaApiTests {
                 .expectStatus().isOk()
                 .expectBody(String.class)
                 .value(body -> {
+                    assert body != null;
                     Assertions.assertTrue(body.contains("What can I help you with?"));
                     Assertions.assertTrue(body.contains("id=\"message-form\""));
                     Assertions.assertTrue(body.contains("id=\"message-input\""));
@@ -87,13 +88,19 @@ public class MinervaApiTests {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class)
-                .value(body -> Assertions.assertTrue(body.contains("fetch(\"/message\"")));
+                .value(body -> {
+                    assert body != null;
+                    Assertions.assertTrue(body.contains("fetch(\"/message\""));
+                });
 
         restTestClient.get().uri("/chat.css")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class)
-                .value(body -> Assertions.assertTrue(body.contains(".message.user")));
+                .value(body -> {
+                    assert body != null;
+                    Assertions.assertTrue(body.contains(".message.user"));
+                });
     }
 
     @Test
@@ -103,6 +110,7 @@ public class MinervaApiTests {
                 .expectStatus().isOk()
                 .expectBody(String.class)
                 .value(body -> {
+                    assert body != null;
                     Assertions.assertTrue(body.contains("Shape Minerva&#39;s personality")
                             || body.contains("Shape Minerva's personality"));
                     Assertions.assertTrue(body.contains("multipart/form-data"));
@@ -123,7 +131,10 @@ public class MinervaApiTests {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class)
-                .value(response -> Assertions.assertFalse(response.isBlank()));
+                .value(response -> {
+                    assert response != null;
+                    Assertions.assertFalse(response.isBlank());
+                });
     }
 
     @Test

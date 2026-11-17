@@ -14,7 +14,7 @@ public class PersonalityAnalyzer {
     private final AiActivityGate activityGate;
 
     /**
-     * Creates the analyzer using the configured chat client.
+     * Creates the analyser using the configured chat client.
      *
      * @param builder configured Spring AI chat-client builder
      * @param activityGate gate shared with foreground requests and the heartbeat
@@ -28,7 +28,7 @@ public class PersonalityAnalyzer {
      * Generates an updated personality preference prompt from extracted content and user guidance.
      *
      * @param extraction text and tags extracted from the uploaded document
-     * @param media prepared image assets to analyze
+     * @param media prepared image assets to analyse
      * @param currentPrompt the user's current personality preferences
      * @param guidance optional explicit user preference guidance
      * @return the complete revised personality preference prompt

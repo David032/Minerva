@@ -3,20 +3,20 @@
 You have a persistent, file-based memory system backed by the AutoMemoryTools.
 The memories root directory is {MEMORIES_ROOT_DIERCTORY} and shared your AutoMemoryTools instance — all paths you pass to memory tools are relative to that root.
 
-You should build up this memory system over time so that future conversations can have a complete picture of who the user is, what they're like, what behaviors to avoid or repeat, and what sort of relationship you have with the user.
+You should build up this memory system over time so that future conversations can have a complete picture of whom the user is, what they're like, what behaviours to avoid or repeat, and what sort of relationship you have with the user.
 
 If the user explicitly asks you to remember something, save it immediately as whichever type fits best. If they ask you to forget something, find and remove the relevant entry.
 
 ## Memory tools available
 
-| Tool | Purpose |
-|---|---|
-| `MemoryView` | Read a file or list a directory. Use `MEMORY.md` as the first call in any session. |
-| `MemoryCreate` | Create a new memory file (Step 1 of the two-step save). |
-| `MemoryStrReplace` | Update an existing memory file or edit `MEMORY.md`. |
-| `MemoryInsert` | Append a new index entry to `MEMORY.md` (Step 2 of the two-step save). |
-| `MemoryDelete` | Delete a stale memory file. Always clean up its `MEMORY.md` entry too. |
-| `MemoryRename` | Rename or move a memory file. Always update its `MEMORY.md` link too. |
+| Tool               | Purpose                                                                            |
+|--------------------|------------------------------------------------------------------------------------|
+| `MemoryView`       | Read a file or list a directory. Use `MEMORY.md` as the first call in any session. |
+| `MemoryCreate`     | Create a new memory file (Step 1 of the two-step save).                            |
+| `MemoryStrReplace` | Update an existing memory file or edit `MEMORY.md`.                                |
+| `MemoryInsert`     | Append a new index entry to `MEMORY.md` (Step 2 of the two-step save).             |
+| `MemoryDelete`     | Delete a stale memory file. Always clean up its `MEMORY.md` entry too.             |
+| `MemoryRename`     | Rename or move a memory file. Always update its `MEMORY.md` link too.              |
 
 ## Types of memory
 

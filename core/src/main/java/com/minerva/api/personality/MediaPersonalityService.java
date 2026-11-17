@@ -54,7 +54,7 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Extracts and analyzes a PDF or HTML upload, then saves its resulting preferences and tags.
+     * Extracts and analyses a PDF or HTML upload, then saves its resulting preferences and tags.
      *
      * @param file the PDF or HTML document to process
      * @param guidance optional explicit preference guidance from the user
@@ -110,7 +110,7 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Analyzes an uploaded image or image URL and uses the resulting description as preference context.
+     * Analyses an uploaded image or image URL and uses the resulting description as preference context.
      *
      * @param imageFile an optional uploaded image
      * @param imageUrl an optional remote image URL
@@ -274,7 +274,7 @@ public class MediaPersonalityService {
      *
      * @param keyword the user's keyword or tag
      * @param score an integer from 1 (strongly negative) to 5 (strongly positive)
-     * @return the normalized saved interest
+     * @return the normalised saved interest
      * @throws IllegalArgumentException if the keyword or score is invalid
      * @throws IOException if the interest cannot be persisted
      */
@@ -312,7 +312,7 @@ public class MediaPersonalityService {
      *
      * @param successfulFileCount number of files processed successfully
      * @param savedTagCount number of inferred tags saved across successful files
-     * @param analyzedMediaCount number of media items analyzed across successful files
+     * @param analyzedMediaCount number of media items analysed across successful files
      * @param failures per-file failures, including filenames
      * @param personalityPrompt the latest saved personality prompt
      */
@@ -328,7 +328,7 @@ public class MediaPersonalityService {
          *
          * @param successfulFileCount number of files processed successfully
          * @param savedTagCount number of inferred tags persisted
-         * @param analyzedMediaCount number of media items analyzed
+         * @param analyzedMediaCount number of media items analysed
          * @param failures per-file failures
          * @param personalityPrompt the latest saved personality prompt
          */
@@ -338,10 +338,10 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Result of analyzing one document or image submission.
+     * Result of analysing one document or image submission.
      *
      * @param savedTagCount number of inferred tags persisted
-     * @param analyzedMediaCount number of media items analyzed
+     * @param analyzedMediaCount number of media items analysed
      * @param personalityPrompt the resulting saved personality prompt
      */
     public record SubmissionResult(int savedTagCount, int analyzedMediaCount, String personalityPrompt) {

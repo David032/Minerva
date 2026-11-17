@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Renders the personality customization pages and handles their form submissions.
+ * Renders the personality customisation pages and handles their form submissions.
  */
 @Controller
 public class PersonalityController {

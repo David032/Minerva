@@ -131,7 +131,7 @@ public class InterestMemoryStore {
      *
      * @param keyword the user's interest keyword or tag
      * @param score an integer from 1 (strongly negative) to 5 (strongly positive)
-     * @return the normalized saved interest
+     * @return the normalised saved interest
      * @throws IllegalArgumentException if the keyword is blank, too long, or the score is outside 1-5
      * @throws IOException if the memory file cannot be read or written
      */
@@ -245,7 +245,7 @@ public class InterestMemoryStore {
     /**
      * A user keyword or tag paired with its opinion score.
      *
-     * @param keyword the normalized user interest
+     * @param keyword the normalised user interest
      * @param score the preference score from 1 through 5
      */
     public record ScoredInterest(String keyword, int score) {
