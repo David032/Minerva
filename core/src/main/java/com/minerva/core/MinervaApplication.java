@@ -1,7 +1,11 @@
 package com.minerva.core;
 
+import com.minerva.discord.DiscordListener;
 import com.minerva.utils.FileManager;
 import com.minerva.utils.OllamaConnector;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
@@ -17,7 +21,7 @@ import static java.lang.IO.*;
 
 @SpringBootApplication(scanBasePackages = {
         "com.minerva.core", "com.minerva.api", "com.minerva.skills",
-        "com.minerva.tools"
+        "com.minerva.tools", "com.minerva.discord"
 })
 @EnableScheduling
 public class MinervaApplication {
@@ -25,8 +29,21 @@ public class MinervaApplication {
     static void main(String[] args) {
         var app = SpringApplication.run(MinervaApplication.class, args);
         var env = Objects.requireNonNull(app).getEnvironment();
+
+        var discord = System.getenv("DISCORD_TOKEN");
+        if (discord != null) {
+            print("Discord token has been set!");
+            JDA api = JDABuilder.createDefault(System.getenv("DISCORD_TOKEN"))
+                    .enableIntents(GatewayIntent.MESSAGE_CONTENT).build();
+            api.addEventListener(new DiscordListener());
+            print(api.getStatus());
+        } else {
+            print("Discord token has not been set!");
+        }
+
         OllamaConnector.getInstance(env.getProperty("spring.ai.ollama.base-url"))
                 .connectToOllama(env.getProperty("spring.ai.ollama.base-url"), env.getProperty("ollama.required-model"));
+
         if (Objects.equals(System.getenv("TERMINAL_INPUT"), "true")){
             while (true) {
                 print("> ");

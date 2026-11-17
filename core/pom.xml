@@ -189,6 +189,11 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-tool-search-advisor</artifactId>
         </dependency>
+        <dependency>
+            <groupId>net.dv8tion</groupId>
+            <artifactId>JDA</artifactId>
+            <version>6.7.0</version> <!-- replace $version with the latest version -->
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
