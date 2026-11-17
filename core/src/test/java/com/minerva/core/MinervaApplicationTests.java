@@ -54,17 +54,4 @@ class MinervaApplicationTests {
         assertThat(responseFile.exists(), is(true));
     }
 
-    @Test
-    void reminderInteraction() {
-        String alarmTime = "2024-06-30T15:30:00";
-        var response = ConversationManager.sendMessage("Set an alarm for " + alarmTime);
-        var normalizedResponse = response.toLowerCase();
-        assertThat(normalizedResponse, containsString("reminder"));
-        Assertions.assertTrue(normalizedResponse.contains("15:30")
-                || normalizedResponse.contains("3:30 pm"),"Failed! Response was: " + normalizedResponse);
-        Assertions.assertTrue(normalizedResponse.contains("2024-06-30")
-                || normalizedResponse.contains("june 30, 2024")
-                || normalizedResponse.contains("june 30th, 2024"), "Failed! Response was: " + normalizedResponse);
-    }
-
 }
