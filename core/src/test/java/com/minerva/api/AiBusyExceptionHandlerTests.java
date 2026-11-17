@@ -8,8 +8,10 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItems;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.contains;
 
 @Tag("Unit")
 class AiBusyExceptionHandlerTests {
@@ -18,6 +20,6 @@ class AiBusyExceptionHandlerTests {
         var response = new AiBusyExceptionHandler().handleAiBusy(new AiBusyException());
 
         assertEquals(503, response.getStatusCode().value());
-        assertThat(Arrays.asList(AiBusyException.MESSAGES).contains(response.getBody());
+        assertThat(Arrays.asList(AiBusyException.MESSAGES), hasItems(response.getBody()));
     }
 }
