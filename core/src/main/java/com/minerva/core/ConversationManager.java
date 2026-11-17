@@ -66,7 +66,6 @@ public class ConversationManager {
     ) throws IOException {
         baseChatClientBuilder = builder.clone();
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
-        var pathToSkills = FileManager.getInstance().getDirectoryPath(Directory.SKILLS);
         SessionMemoryAdvisor sessionMemoryAdvisor = SessionMemoryAdvisor.builder(sessionService)
                 .defaultUserId("user")
                 // Compact when 20 turns accumulate, keeping the last 10 events
@@ -86,6 +85,8 @@ public class ConversationManager {
                 .memoriesDir(pathToMemories)
                 .build();
 
+        TodoWriteTool todoTool = TodoWriteTool.builder().build();
+
         activeAdvisors = new Advisor[] {
                 sessionMemoryAdvisor,
                 longTermMemoryAdvisor,
@@ -98,6 +99,7 @@ public class ConversationManager {
                 GrepTool.builder().build(),
                 GlobTool.builder().build(),
                 memoryTools,
+                todoTool,
                 new SkillImportTools(skillImportService)
         };
         if (System.getenv("BRAVE_API_KEY") != null) {
