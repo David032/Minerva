@@ -23,21 +23,26 @@
     <section id="reminders" class="reminders" aria-labelledby="reminders-heading">
         <div class="reminders-heading">
             <h2 id="reminders-heading">Reminders</h2>
-            <button id="refresh-reminders" type="button">Refresh</button>
+            <div class="reminder-actions">
+                <button id="refresh-reminders" type="button">Refresh</button>
+                <button id="toggle-reminders" type="button" aria-expanded="true" aria-controls="reminder-content">Hide</button>
+            </div>
         </div>
-        <form id="reminder-form" class="reminder-form">
-            <label>
-                <span>When</span>
-                <input id="reminder-time" name="time" type="datetime-local" required>
-            </label>
-            <label>
-                <span>Reminder</span>
-                <input id="reminder-message" name="message" maxlength="1000" required>
-            </label>
-            <button type="submit">Add reminder</button>
-        </form>
-        <p id="reminder-status" role="status" aria-live="assertive"></p>
-        <ul id="reminder-list" aria-live="polite"></ul>
+        <div id="reminder-content">
+            <form id="reminder-form" class="reminder-form">
+                <label>
+                    <span>When</span>
+                    <input id="reminder-time" name="time" type="datetime-local" required>
+                </label>
+                <label>
+                    <span>Reminder</span>
+                    <input id="reminder-message" name="message" maxlength="1000" required>
+                </label>
+                <button type="submit">Add reminder</button>
+            </form>
+            <p id="reminder-status" role="status" aria-live="assertive"></p>
+            <ul id="reminder-list" aria-live="polite"></ul>
+        </div>
     </section>
 
     <section id="conversation" class="conversation" aria-label="Conversation" aria-live="polite">
@@ -46,13 +51,20 @@
 
     <form id="message-form" class="composer">
         <label class="visually-hidden" for="message-input">Message Minerva</label>
-        <textarea id="message-input" name="message" rows="1" placeholder="Message Minerva..." required></textarea>
+        <textarea id="message-input" name="message" rows="1" placeholder="Message Minerva..."></textarea>
+        <input id="image-input" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+        <button id="attach-image-button" type="button" class="attach-button" aria-label="Attach an image">+</button>
         <button id="send-button" type="submit" aria-label="Send message">
             <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M4 12 20 4l-5 16-3-7-8-1Zm8 1 4-5"></path>
             </svg>
         </button>
     </form>
+    <div id="image-preview" class="image-preview" hidden>
+        <img id="image-preview-image" alt="Selected image preview">
+        <span id="image-preview-name"></span>
+        <button id="remove-image-button" type="button" aria-label="Remove selected image">Remove</button>
+    </div>
     <p id="status" class="status" role="status"></p>
 </main>
 </body>

@@ -57,7 +57,7 @@ public class RemoteMediaFetcher {
         this.addressResolver = addressResolver;
     }
 
-    private static CloseableHttpClient createHttpClient() {
+    static CloseableHttpClient createHttpClient() {
         DnsResolver resolver = new DnsResolver() {
             @Override
             public InetAddress[] resolve(String host) throws UnknownHostException {
@@ -162,7 +162,7 @@ public class RemoteMediaFetcher {
         validateRemoteUri(uri, RemoteMediaFetcher::resolvePublicAddresses);
     }
 
-    private static void validateRemoteUri(URI uri, AddressResolver resolver) throws IOException {
+    static void validateRemoteUri(URI uri, AddressResolver resolver) throws IOException {
         if (uri == null || (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme()))
                 || uri.getHost() == null || uri.getUserInfo() != null
                 || (uri.getPort() != -1 && uri.getPort() != 80 && uri.getPort() != 443)) {
@@ -183,7 +183,7 @@ public class RemoteMediaFetcher {
         }
     }
 
-    private static InetAddress[] resolvePublicAddresses(String host) throws IOException {
+    static InetAddress[] resolvePublicAddresses(String host) throws IOException {
         InetAddress[] addresses;
         try {
             addresses = InetAddress.getAllByName(host);
@@ -201,7 +201,7 @@ public class RemoteMediaFetcher {
         return addresses;
     }
 
-    private static boolean isPublicAddress(InetAddress address) {
+    static boolean isPublicAddress(InetAddress address) {
         if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
                 || address.isSiteLocalAddress() || address.isMulticastAddress()) {
             return false;

@@ -32,6 +32,9 @@ class PersonalityPageTests {
     private MediaPersonalityService service;
 
     @MockitoBean
+    private RemoteArticleFetcher articleFetcher;
+
+    @MockitoBean
     private JdbcChatMemoryRepository jdbcChatMemoryRepository;
 
     @Test
@@ -45,6 +48,8 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Shape Minerva")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("imageUrl")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"imageFiles\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleUrl\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleComment\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy quiet gardens.")));
     }
@@ -92,6 +97,25 @@ class PersonalityPageTests {
 
         verify(service).processImage(org.mockito.ArgumentMatchers.isNull(),
                 eq("https://images.example.test/photo.png"), eq("I like this."));
+    }
+
+    @Test
+    void routesArticleLinksAndCommentsToPreferenceAnalysis() throws Exception {
+        when(articleFetcher.fetch("https://news.example.test/story"))
+                .thenReturn(new RemoteArticleFetcher.Article(
+                        java.net.URI.create("https://news.example.test/story"), "A story", "Article text"));
+        when(service.processArticle(any(), eq("I liked the thoughtful analysis."))).thenReturn(
+                new MediaPersonalityService.SubmissionResult(0, 0, "I enjoy thoughtful analysis."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .param("articleUrl", "https://news.example.test/story")
+                        .param("articleComment", "I liked the thoughtful analysis."))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Article analysis complete")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy thoughtful analysis.")));
+
+        verify(articleFetcher).fetch("https://news.example.test/story");
+        verify(service).processArticle(any(), eq("I liked the thoughtful analysis."));
     }
 
     @Test

@@ -35,7 +35,11 @@ class ChatPageTests {
                 .andExpect(content().string(containsString("id=\"send-button\"")))
                 .andExpect(content().string(containsString("id=\"status\"")))
                 .andExpect(content().string(containsString("id=\"reminder-form\"")))
+                .andExpect(content().string(containsString("id=\"toggle-reminders\"")))
                 .andExpect(content().string(containsString("id=\"reminder-list\"")))
+                .andExpect(content().string(containsString("id=\"image-input\"")))
+                .andExpect(content().string(containsString("id=\"attach-image-button\"")))
+                .andExpect(content().string(containsString("id=\"image-preview\"")))
                 .andExpect(content().string(containsString("href=\"/personality\"")))
                 .andExpect(content().string(containsString("href=\"/chat.css\"")))
                 .andExpect(content().string(containsString("src=\"/chat.js\"")));

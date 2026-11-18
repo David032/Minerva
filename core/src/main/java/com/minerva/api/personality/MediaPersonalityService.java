@@ -70,6 +70,22 @@ public class MediaPersonalityService {
     }
 
     /**
+     * Analyses fetched article text with the user's comment as explicit preference guidance.
+     *
+     * @param article fetched and parsed article content
+     * @param comment the user's explicit preference guidance
+     * @return counts and the resulting personality prompt
+     * @throws IOException if analysis or persistence fails
+     */
+    public synchronized SubmissionResult processArticle(RemoteArticleFetcher.Article article, String comment)
+            throws IOException {
+        String articleText = (article.title().isBlank() ? "" : "Title: " + article.title() + "\n")
+                + "Source: " + article.source() + "\n" + article.text();
+        var extraction = new MediaDocumentExtractor.Extraction(articleText, List.of(), List.of(), List.of());
+        return analyzeAndSave(extraction, List.of(), comment, 0);
+    }
+
+    /**
      * Processes a batch of HTML files independently, retaining the filename and error for each failure.
      *
      * @param files HTML files selected for batch processing

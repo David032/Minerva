@@ -59,6 +59,7 @@ class MediaPersonalityWorkflowIntegrationTests {
     private VideoFrameExtractor videoFrameExtractor;
     private PersonalityAnalyzer analyzer;
     private PersonalityImageOpinionService imageOpinionService;
+    private RemoteArticleFetcher articleFetcher;
     private List<java.net.URI> fetchedMedia;
     private List<RemoteMediaFetcher.MediaAsset> analyzedMedia;
     private RemoteMediaFetcher.MediaAsset imageSentForOpinion;
@@ -107,6 +108,7 @@ class MediaPersonalityWorkflowIntegrationTests {
             imageSentForOpinion = invocation.getArgument(0);
             return "A description of the uploaded image.";
         });
+        articleFetcher = mock(RemoteArticleFetcher.class);
 
         var service = new MediaPersonalityService(
                 extractor,
@@ -126,9 +128,29 @@ class MediaPersonalityWorkflowIntegrationTests {
         templateEngine.setTemplateResolver(templateResolver);
         ThymeleafViewResolver viewResolver = new ThymeleafViewResolver();
         viewResolver.setTemplateEngine(templateEngine);
-        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(service))
+        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(service, articleFetcher))
                 .setViewResolvers(viewResolver)
                 .build();
+    }
+
+    @Test
+    void updatesPersonalityFromArticleAndUserComment() throws Exception {
+        String articleUrl = "https://news.example.test/story";
+        when(articleFetcher.fetch(articleUrl)).thenReturn(new RemoteArticleFetcher.Article(
+                java.net.URI.create(articleUrl), "A thoughtful story", "The article discusses quiet gardens."));
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .param("articleUrl", articleUrl)
+                        .param("articleComment", "I enjoy its calm perspective."))
+                .andExpect(status().isOk())
+                .andExpect(view().name("personality"))
+                .andReturn();
+
+        assertEquals("Updated from 0 interest tags with guidance: I enjoy its calm perspective.",
+                promptStore.load());
+        assertTrue(result.getModelAndView().getModel().get("success")
+                .toString().contains("Article analysis complete"));
+        org.mockito.Mockito.verify(articleFetcher).fetch(articleUrl);
     }
 
     @Test
