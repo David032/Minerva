@@ -1,6 +1,7 @@
 package com.minerva.core;
 
 import com.minerva.utils.FileManager;
+import com.minerva.core.journiv.JournivService;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,7 +25,8 @@ class HeartbeatServiceTests {
     private final AiActivityGate activityGate = new AiActivityGate();
     private final FileManager fileManager = mock(FileManager.class);
     private final HeartbeatAssistant assistant = mock(HeartbeatAssistant.class);
-    private final HeartbeatService service = new HeartbeatService(activityGate, fileManager, assistant);
+    private final JournivService journivService = mock(JournivService.class);
+    private final HeartbeatService service = new HeartbeatService(activityGate, fileManager, assistant, journivService);
 
     @Test
     void skipsTickWhileConversationIsActive() throws IOException {
@@ -37,6 +39,9 @@ class HeartbeatServiceTests {
         }
 
         verify(assistant, never()).run("Check something");
+        verify(journivService, never()).record(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -49,6 +54,9 @@ class HeartbeatServiceTests {
         assertTrue(service.runIfIdle());
 
         verify(assistant, never()).run(org.mockito.ArgumentMatchers.anyString());
+        verify(journivService, never()).record(
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
@@ -56,10 +64,12 @@ class HeartbeatServiceTests {
         Path heartbeatFile = temporaryDirectory.resolve("heartbeat.md");
         Files.writeString(heartbeatFile, "Check the latest system status");
         when(fileManager.getHeartbeatFilePath()).thenReturn(heartbeatFile);
+        when(assistant.run("Check the latest system status")).thenReturn("Checked the status");
 
         assertTrue(service.runIfIdle());
 
         verify(assistant).run("Check the latest system status");
+        verify(journivService).record("heartbeat", "", "Checked the status");
     }
 
     @Test
