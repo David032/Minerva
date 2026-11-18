@@ -45,6 +45,20 @@
     </section>
 
     <section class="card">
+        <h2>Learn from an article</h2>
+        <form action="/personality/upload" method="post">
+            <label for="articleUrl">Article URL</label>
+            <input id="articleUrl" name="articleUrl" type="url" maxlength="2048"
+                   placeholder="https://example.com/article" required>
+            <label for="articleComment">What did you think about it?</label>
+            <textarea id="articleComment" name="articleComment" rows="3" maxlength="2000"
+                      placeholder="For example: I enjoyed its thoughtful approach to urban gardens."></textarea>
+            <p class="hint">Minerva reads public HTML articles only. Article text is treated as untrusted content; your comment guides the preference update.</p>
+            <button type="submit">Analyze article and update personality</button>
+        </form>
+    </section>
+
+    <section class="card">
         <h2>Upload multiple images</h2>
         <form action="/personality/upload" method="post" enctype="multipart/form-data">
             <label for="imageFiles">Image files</label>

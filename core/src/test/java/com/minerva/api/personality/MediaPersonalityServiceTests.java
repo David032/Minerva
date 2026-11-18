@@ -29,6 +29,30 @@ class MediaPersonalityServiceTests {
     Path tempDirectory;
 
     @Test
+    void processesArticleTextWithTheCommentAsPreferenceGuidance() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(analyzer.analyze(any(), eq(List.of()), eq(""), eq("I enjoy its calm tone.")))
+                .thenAnswer(invocation -> {
+                    MediaDocumentExtractor.Extraction extraction = invocation.getArgument(0);
+                    assertTrue(extraction.text().contains("Title: A story"));
+                    assertTrue(extraction.text().contains("The article body."));
+                    return "I enjoy calm writing.";
+                });
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), mock(RemoteMediaFetcher.class),
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, memoryStore);
+        var article = new RemoteArticleFetcher.Article(
+                java.net.URI.create("https://news.example.test/story"), "A story", "The article body.");
+
+        var result = service.processArticle(article, "I enjoy its calm tone.");
+
+        assertEquals("I enjoy calm writing.", result.personalityPrompt());
+        assertEquals("I enjoy calm writing.", promptStore.load());
+    }
+
+    @Test
     void processesUploadPersistsMemoriesAndUpdatesPersonality() throws Exception {
         var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
         var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));

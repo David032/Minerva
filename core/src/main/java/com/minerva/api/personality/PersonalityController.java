@@ -18,14 +18,17 @@ import java.util.List;
 @Controller
 public class PersonalityController {
     private final MediaPersonalityService service;
+    private final RemoteArticleFetcher articleFetcher;
 
     /**
      * Creates the controller backed by the personality workflow service.
      *
      * @param service performs media analysis and persists personality preferences
+     * @param articleFetcher retrieves and extracts public HTML articles
      */
-    public PersonalityController(MediaPersonalityService service) {
+    public PersonalityController(MediaPersonalityService service, RemoteArticleFetcher articleFetcher) {
         this.service = service;
+        this.articleFetcher = articleFetcher;
     }
 
     /**
@@ -42,7 +45,7 @@ public class PersonalityController {
     }
 
     /**
-     * Processes a single document/image submission or a batch of HTML documents.
+     * Processes an article, single document/image submission, or a batch of HTML documents.
      *
      * @param file optional single PDF, HTML, or image upload
      * @param htmlFiles optional batch of HTML uploads
@@ -50,6 +53,8 @@ public class PersonalityController {
      * @param imageUrl optional image URL
      * @param comment optional image-analysis comment
      * @param guidance optional PDF or HTML preference guidance
+     * @param articleUrl optional public article URL
+     * @param articleComment optional preference guidance about the article
      * @param model view model for the upload result
      * @return the personality template with success or failure feedback
      * @throws IOException if the saved prompt cannot be loaded
@@ -62,19 +67,38 @@ public class PersonalityController {
             @RequestParam(required = false) String imageUrl,
             @RequestParam(defaultValue = "") String comment,
             @RequestParam(defaultValue = "") String guidance,
+            @RequestParam(required = false) String articleUrl,
+            @RequestParam(defaultValue = "") String articleComment,
             Model model
     ) throws IOException {
         try {
             if (guidance.length() > 2_000 || comment.length() > 2_000) {
                 throw new IllegalArgumentException("Guidance must be 2,000 characters or fewer.");
             }
+            if (articleComment.length() > 2_000) {
+                throw new IllegalArgumentException("Article comments must be 2,000 characters or fewer.");
+            }
             if (imageUrl != null && imageUrl.length() > 2_048) {
                 throw new IllegalArgumentException("Image URLs must be 2,048 characters or fewer.");
             }
+            if (articleUrl != null && articleUrl.length() > 2_048) {
+                throw new IllegalArgumentException("Article URLs must be 2,048 characters or fewer.");
+            }
             boolean hasHtmlBatch = htmlFiles != null && !htmlFiles.isEmpty();
             boolean hasImageBatch = imageFiles != null && !imageFiles.isEmpty();
+            boolean hasArticleUrl = articleUrl != null && !articleUrl.isBlank();
             if (hasHtmlBatch && hasImageBatch) {
                 throw new IllegalArgumentException("Submit either an HTML batch or an image batch, not both.");
+            }
+            if (hasArticleUrl) {
+                if (hasHtmlBatch || hasImageBatch || file != null && !file.isEmpty()
+                        || imageUrl != null && !imageUrl.isBlank()) {
+                    throw new IllegalArgumentException("Submit an article URL separately from files or image URLs.");
+                }
+                var result = service.processArticle(articleFetcher.fetch(articleUrl), articleComment);
+                model.addAttribute("success", "Article analysis complete. Personality preferences were updated.");
+                model.addAttribute("personalityPrompt", result.personalityPrompt());
+                return "personality";
             }
             if (hasHtmlBatch) {
                 if (file != null && !file.isEmpty() || imageUrl != null && !imageUrl.isBlank()) {

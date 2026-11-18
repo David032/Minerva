@@ -81,7 +81,7 @@ class RemoteMediaFetcherTests {
         return response;
     }
 
-    private static InetAddress[] publicAddress(String host) throws IOException {
+    static InetAddress[] publicAddress(String host) throws IOException {
         return new InetAddress[] {InetAddress.getByAddress(new byte[] {8, 8, 8, 8})};
     }
 }
