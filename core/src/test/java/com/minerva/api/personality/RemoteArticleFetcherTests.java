@@ -44,23 +44,26 @@ class RemoteArticleFetcherTests {
     @Test
     void rejectsUnsafeUrlsAndNonHtmlResponses() throws Exception {
         var client = mock(CloseableHttpClient.class);
-        var fetcher = new RemoteArticleFetcher(client, RemoteMediaFetcherTests::publicAddress);
+        var fetcher = new RemoteArticleFetcher(client, RemoteMediaFetcher::resolvePublicAddresses);
 
         assertThrows(IllegalArgumentException.class, () -> fetcher.fetch("http://127.0.0.1/story"));
         assertThrows(IllegalArgumentException.class, () -> fetcher.fetch("https://user@example.test/story"));
 
+        var nonHtmlResponse = response(
+                200, "<p>Not a page</p>".getBytes(StandardCharsets.UTF_8), "text/plain");
         when(client.execute(any(org.apache.hc.core5.http.ClassicHttpRequest.class)))
-                .thenReturn(response(200, "<p>Not a page</p>".getBytes(StandardCharsets.UTF_8), "text/plain"));
-        assertThrows(IllegalArgumentException.class,
-                () -> fetcher.fetch("https://news.example.test/story"));
+                .thenReturn(nonHtmlResponse);
+        var publicFetcher = new RemoteArticleFetcher(client, RemoteMediaFetcherTests::publicAddress);
+        assertThrows(IllegalArgumentException.class, () -> publicFetcher.fetch("https://news.example.test/story"));
     }
 
     @Test
     void rejectsNonSuccessfulResponsesAndOversizedArticleBodies() throws Exception {
         var client = mock(CloseableHttpClient.class);
         var fetcher = new RemoteArticleFetcher(client, RemoteMediaFetcherTests::publicAddress);
+        var redirectResponse = response(302, new byte[0], "text/html");
         when(client.execute(any(org.apache.hc.core5.http.ClassicHttpRequest.class)))
-                .thenReturn(response(302, new byte[0], "text/html"));
+                .thenReturn(redirectResponse);
 
         assertThrows(java.io.IOException.class, () -> fetcher.fetch("https://news.example.test/story"));
 
