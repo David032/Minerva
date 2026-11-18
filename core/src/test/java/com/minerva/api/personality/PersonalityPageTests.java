@@ -44,6 +44,7 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/personality/upload")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Shape Minerva")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("imageUrl")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"imageFiles\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy quiet gardens.")));
     }
@@ -127,6 +128,42 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("broken.html")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("No readable HTML content.")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy botanical art.")));
+    }
+
+    @Test
+    void processesMultipleImageFilesAndDisplaysBatchResults() throws Exception {
+        when(service.processImageBatch(any(), eq("Shared comment"))).thenReturn(
+                new MediaPersonalityService.BatchSubmissionResult(
+                        1, 0, 1,
+                        List.of(new MediaPersonalityService.FileFailure("broken.png", "Unsupported image.")),
+                        "I enjoy botanical art."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "imageFiles", "good.png", "image/png", new byte[] {1}))
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "imageFiles", "broken.png", "image/png", new byte[] {2}))
+                        .param("comment", "Shared comment"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Processed 1 image(s)")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("broken.png")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy botanical art.")));
+
+        verify(service).processImageBatch(any(), eq("Shared comment"));
+    }
+
+    @Test
+    void rejectsMixedHtmlAndImageBatches() throws Exception {
+        when(service.loadPrompt()).thenReturn("");
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "htmlFiles", "page.html", "text/html", "<p>Example</p>".getBytes()))
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "imageFiles", "photo.png", "image/png", new byte[] {1})))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Submit either an HTML batch or an image batch")));
     }
 
     @Test

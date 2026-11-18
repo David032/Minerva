@@ -21,25 +21,18 @@ import java.util.Map;
  */
 @Component
 public class MediaDocumentExtractor {
-    /** Maximum allowed size of a document upload, in bytes. */
-    public static final long MAX_UPLOAD_BYTES = 10L * 1024 * 1024;
-
     /**
      * Extracts content from a supported document upload.
      *
      * @param file uploaded PDF or HTML document
-     * @return extracted text, tags, and media URLs
-     * @throws IllegalArgumentException if the upload is empty, oversized, invalid, or unsupported
+     * @return extracted text, tags, media URLs, and image alt text
+     * @throws IllegalArgumentException if the upload is empty, invalid, or unsupported
      * @throws IOException if a valid PDF cannot be read
      */
     public Extraction extract(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Choose a non-empty PDF or HTML file.");
         }
-        if (file.getSize() > MAX_UPLOAD_BYTES) {
-            throw new IllegalArgumentException("The uploaded file exceeds the 10 MB limit.");
-        }
-
         String filename = file.getOriginalFilename();
         String extension = filename == null ? "" : filename.substring(filename.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
         byte[] bytes = file.getBytes();
@@ -71,7 +64,7 @@ public class MediaDocumentExtractor {
             if (text.isBlank()) {
                 throw new IllegalArgumentException("No readable text could be extracted from the PDF.");
             }
-            return new Extraction(text, List.of(), List.of());
+            return new Extraction(text, List.of(), List.of(), List.of());
         } catch (RuntimeException e) {
             if (e instanceof IllegalArgumentException) {
                 throw e;
@@ -92,6 +85,11 @@ public class MediaDocumentExtractor {
                 tagsByKey.putIfAbsent(tag.toLowerCase(Locale.ROOT), tag);
             }
         }
+
+        List<String> imageAltTexts = document.select("img[alt]").stream()
+                .map(element -> element.attr("alt").replaceAll("\\s+", " ").trim())
+                .filter(value -> !value.isEmpty())
+                .toList();
 
         URI base = null;
         var baseElement = document.selectFirst("base[href]");
@@ -126,10 +124,10 @@ public class MediaDocumentExtractor {
         }
 
         String text = document.body() == null ? "" : document.body().text().replaceAll("\\s+", " ").trim();
-        if (text.isBlank() && tagsByKey.isEmpty() && media.isEmpty()) {
-            throw new IllegalArgumentException("The HTML file contains no readable text, interest tags, or media references.");
+        if (text.isBlank() && tagsByKey.isEmpty() && media.isEmpty() && imageAltTexts.isEmpty()) {
+            throw new IllegalArgumentException("The HTML file contains no readable text, interest tags, media references, or image alt text.");
         }
-        return new Extraction(text, List.copyOf(tagsByKey.values()), List.copyOf(media));
+        return new Extraction(text, List.copyOf(tagsByKey.values()), List.copyOf(media), imageAltTexts);
     }
 
     private static boolean startsWith(byte[] bytes, String prefix) {
@@ -155,7 +153,8 @@ public class MediaDocumentExtractor {
      * @param text readable document text
      * @param tags unique interest tags found in the document
      * @param mediaUrls eligible HTTP(S) media references found in the document
+     * @param imageAltTexts non-blank alt text from HTML image elements
      */
-    public record Extraction(String text, List<String> tags, List<URI> mediaUrls) {
+    public record Extraction(String text, List<String> tags, List<URI> mediaUrls, List<String> imageAltTexts) {
     }
 }

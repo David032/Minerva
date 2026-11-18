@@ -36,11 +36,16 @@ class MediaPersonalityServiceTests {
         var analyzer = mock(PersonalityAnalyzer.class);
         var imageOpinionService = mock(PersonalityImageOpinionService.class);
         when(fetcher.fetch(List.of())).thenReturn(List.of());
-        when(analyzer.analyze(any(), eq(List.of()), eq(""), eq("I like this"))).thenReturn("I enjoy botanical art.");
+        when(analyzer.analyze(any(), eq(List.of()), eq(""), eq("I like this"))).thenAnswer(invocation -> {
+            MediaDocumentExtractor.Extraction extraction = invocation.getArgument(0);
+            assertEquals(List.of("A garden in spring"), extraction.imageAltTexts());
+            return "I enjoy botanical art.";
+        });
         var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
                 new MediaPreprocessor(video -> List.of()), analyzer, imageOpinionService, promptStore, memoryStore);
         var file = new MockMultipartFile("file", "likes.html", "text/html",
-                "<p>Botanical illustrations</p><span class=\"tag\">Botanical art</span>".getBytes());
+                "<p>Botanical illustrations</p><img alt=\"A garden in spring\">"
+                        .concat("<span class=\"tag\">Botanical art</span>").getBytes());
 
         var result = service.process(file, "I like this");
 
@@ -85,6 +90,36 @@ class MediaPersonalityServiceTests {
                 && failure.message().contains("Only HTML files")));
         assertEquals("Updated from a valid page.", result.personalityPrompt());
         assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- Botanical art"));
+    }
+
+    @Test
+    void processesImageBatchesIndependentlyIncludingImagesLargerThanTenMegabytes() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var imageOpinionService = mock(PersonalityImageOpinionService.class);
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(imageOpinionService.analyze(any(), any())).thenReturn("An image description.");
+        when(analyzer.analyze(any(), any(), any(), any())).thenReturn("Updated from image.");
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), mock(RemoteMediaFetcher.class),
+                new MediaPreprocessor(video -> List.of()), analyzer, imageOpinionService, promptStore,
+                new InterestMemoryStore(tempDirectory.resolve("memories.md")));
+        byte[] png = new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10, 1};
+        byte[] largePng = new byte[10 * 1024 * 1024 + 1];
+        System.arraycopy(png, 0, largePng, 0, png.length);
+        List<org.springframework.web.multipart.MultipartFile> files = List.of(
+                new MockMultipartFile("imageFiles", "garden.png", "image/png", png),
+                new MockMultipartFile("imageFiles", "broken.png", "image/png", new byte[] {1}),
+                new MockMultipartFile("imageFiles", "large.png", "image/png", largePng)
+        );
+
+        var result = service.processImageBatch(files, "I like these.");
+
+        assertEquals(2, result.successfulFileCount());
+        assertEquals(2, result.analyzedMediaCount());
+        assertEquals(List.of(new MediaPersonalityService.FileFailure(
+                "broken.png", "The uploaded file is not a supported JPEG, PNG, GIF, or WebP image.")),
+                result.failures());
+        assertEquals("Updated from image.", result.personalityPrompt());
+        org.mockito.Mockito.verify(imageOpinionService, org.mockito.Mockito.times(2)).analyze(any(), any());
     }
 
     @Test
