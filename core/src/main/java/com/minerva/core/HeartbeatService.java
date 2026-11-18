@@ -55,6 +55,7 @@ public class HeartbeatService {
         var heartbeatPath = fileManager.getHeartbeatFilePath();
         String instructions;
         try {
+            fileManager.ensureDefaultHeartbeatFile();
             instructions = Files.readString(heartbeatPath, StandardCharsets.UTF_8);
         } catch (NoSuchFileException exception) {
             logger.info("Skipping heartbeat because {} does not exist", heartbeatPath);

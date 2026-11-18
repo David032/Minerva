@@ -2,6 +2,7 @@ package com.minerva.api.personality;
 
 import com.minerva.core.AiBusyException;
 import com.minerva.core.personality.PersonalityPromptStore;
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -199,6 +200,19 @@ public class MediaPersonalityService {
         var extraction = new MediaDocumentExtractor.Extraction(
                 "Image analysis:\n" + description, List.of(), List.of(), List.of());
         return analyzeAndSave(extraction, List.of(), effectiveComment, 1);
+    }
+
+    /**
+     * Analyses a public image URL and applies the result to the saved personality prompt.
+     *
+     * @param imageUrl public HTTP(S) image URL
+     * @param comment optional guidance about the image
+     * @return counts and the resulting personality prompt
+     * @throws IOException if image retrieval or personality analysis fails
+     */
+    @Tool(description = "Analyze a public image URL and conservatively update Minerva's saved personality preferences")
+    public synchronized SubmissionResult processImageUrl(String imageUrl, String comment) throws IOException {
+        return processImage(null, imageUrl, comment);
     }
 
     private RemoteMediaFetcher.MediaAsset uploadedImage(MultipartFile file) throws IOException {
