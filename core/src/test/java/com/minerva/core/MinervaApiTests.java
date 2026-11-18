@@ -13,10 +13,13 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.util.LinkedMultiValueMap;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import com.minerva.core.journiv.JournivService;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import java.time.Duration;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
@@ -28,6 +31,9 @@ public class MinervaApiTests {
 
     @MockitoBean
     private HeartbeatService heartbeatService;
+
+    @MockitoBean
+    private JournivService journivService;
 
     @Autowired
     private PostgreSQLContainer postgresContainer;
@@ -59,6 +65,7 @@ public class MinervaApiTests {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class);
+        verify(journivService).record(eq("text"), eq("Hello there"), anyString());
     }
 
     @Test
@@ -135,6 +142,7 @@ public class MinervaApiTests {
                     assert response != null;
                     Assertions.assertFalse(response.isBlank());
                 });
+        verify(journivService).record(eq("image"), eq("What do you think about this image?"), anyString());
     }
 
     @Test

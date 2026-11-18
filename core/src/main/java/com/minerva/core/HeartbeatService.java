@@ -1,6 +1,7 @@
 package com.minerva.core;
 
 import com.minerva.utils.FileManager;
+import com.minerva.core.journiv.JournivService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class HeartbeatService {
     private final AiActivityGate activityGate;
     private final FileManager fileManager;
     private final HeartbeatAssistant assistant;
+    private final JournivService journivService;
 
     /**
      * Creates a heartbeat service.
@@ -27,15 +29,18 @@ public class HeartbeatService {
      * @param activityGate gate shared with foreground AI requests
      * @param fileManager Minerva local data paths
      * @param assistant heartbeat-specific assistant operation
+     * @param journivService optional Journiv activity recorder
      */
     public HeartbeatService(
             AiActivityGate activityGate,
             FileManager fileManager,
-            HeartbeatAssistant assistant
+            HeartbeatAssistant assistant,
+            JournivService journivService
     ) {
         this.activityGate = activityGate;
         this.fileManager = fileManager;
         this.assistant = assistant;
+        this.journivService = journivService;
     }
 
     /**
@@ -70,7 +75,8 @@ public class HeartbeatService {
             return;
         }
 
-        assistant.run(instructions);
+        String result = assistant.run(instructions);
+        journivService.record("heartbeat", "", result);
         logger.info("Heartbeat completed");
     }
 }

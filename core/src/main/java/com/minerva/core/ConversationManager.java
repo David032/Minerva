@@ -4,6 +4,8 @@ import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.core.reminders.ReminderTools;
+import com.minerva.core.journiv.JournivService;
+import com.minerva.core.journiv.JournivTools;
 import com.minerva.api.personality.MediaPersonalityService;
 import com.minerva.tools.RssTools;
 import com.minerva.skills.SkillImportService;
@@ -51,6 +53,7 @@ public class ConversationManager {
     private static String activeSystemPrompt;
     private static RestClient voiceClient;
     private static AiActivityGate activityGate;
+    private static JournivService journivService;
     private static final String HEARTBEAT_SESSION_ID = "minerva-heartbeat";
     private static final String HEARTBEAT_SYSTEM_PROMPT = """
             You are performing Minerva's scheduled idle heartbeat. Follow the local operator's
@@ -78,6 +81,8 @@ public class ConversationManager {
     /// @param rssTools RSS tools exposed to the assistant.
     /// @param personalityService personality image workflow exposed to the assistant.
     /// @param activityGate gate shared by foreground requests and the heartbeat.
+    /// @param journivService activity recorder for the optional Journiv integration.
+    /// @param journivTools read-only journal tools.
     /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static synchronized void Initialize(
             ChatClient.Builder builder,
@@ -87,9 +92,12 @@ public class ConversationManager {
             ReminderTools reminderTools,
             RssTools rssTools,
             MediaPersonalityService personalityService,
-            AiActivityGate activityGate
+            AiActivityGate activityGate,
+            JournivService journivService,
+            JournivTools journivTools
     ) throws IOException {
         ConversationManager.activityGate = activityGate;
+        ConversationManager.journivService = journivService;
         baseChatClientBuilder = builder.clone();
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
         SessionMemoryAdvisor sessionMemoryAdvisor = SessionMemoryAdvisor.builder(sessionService)
@@ -141,6 +149,10 @@ public class ConversationManager {
                 rssTools,
                 personalityService
         };
+        if (journivService.enabled()) {
+            activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
+            activeTools[activeTools.length - 1] = journivTools;
+        }
         if (System.getenv("BRAVE_API_KEY") != null) {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
             activeTools[activeTools.length - 1] =
@@ -208,13 +220,15 @@ public class ConversationManager {
             return AiBusyException.USER_MESSAGE;
         }
         try (var ignored = lease.get()) {
-            return aiChatClient
+            String response = aiChatClient
                     .prompt()
                     .system(system -> system.text(currentPrompt()))
                     .user(message)
                     .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                     .call()
                     .content();
+            journivService.record("text", message, response);
+            return response;
         }
     }
 
@@ -272,6 +286,7 @@ public class ConversationManager {
                     .call()
                     .content();
             logger.info("Responding to image message with: {}", response);
+            journivService.record("image", finalRequest, response);
             return response;
         }
     }
@@ -312,7 +327,11 @@ public class ConversationManager {
             assert responseAudio != null;
             var pathToAudio = FileManager.getInstance().UploadFile(responseAudio.getOriginalFilename(), responseAudio);
             //Return the audio
-            return FileManager.getInstance().GetFile(pathToAudio);
+            File result = FileManager.getInstance().GetFile(pathToAudio);
+            if (convertedText != null) {
+                journivService.record("audio", convertedText, response);
+            }
+            return result;
         }
     }
 

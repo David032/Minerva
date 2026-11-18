@@ -3,6 +3,8 @@ package com.minerva.api;
 import com.minerva.core.ConversationManager;
 import com.minerva.core.AiActivityGate;
 import com.minerva.core.reminders.ReminderTools;
+import com.minerva.core.journiv.JournivService;
+import com.minerva.core.journiv.JournivTools;
 import com.minerva.api.personality.MediaPersonalityService;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.tools.RssTools;
@@ -35,11 +37,13 @@ public class ConversationController {
             ReminderTools reminderTools,
             RssTools rssTools,
             MediaPersonalityService personalityService,
-            AiActivityGate activityGate
+            AiActivityGate activityGate,
+            JournivService journivService,
+            JournivTools journivTools
     ) throws IOException {
         ConversationManager.Initialize(
                 ai, sessionService, skillImportService, dateTimeTools, reminderTools,
-                rssTools, personalityService, activityGate
+                rssTools, personalityService, activityGate, journivService, journivTools
         );
         fileManager = FileManager.getInstance();
         conversation = new ConversationOperations() {
