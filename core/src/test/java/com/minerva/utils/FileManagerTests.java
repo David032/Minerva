@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -37,6 +38,50 @@ class FileManagerTests {
         var manager = new FileManager(root);
 
         assertEquals(root.resolve("heartbeat.md"), manager.getHeartbeatFilePath());
+    }
+
+    @Test
+    void createsDefaultHeartbeatAfterPersonalityAndInterestsExist() throws IOException {
+        Path root = tempDirectory.resolve("MinervaOS");
+        var manager = new FileManager(root);
+        Files.writeString(root.resolve("personality.md"), "I enjoy science.", StandardCharsets.UTF_8);
+        Files.writeString(root.resolve("memories/memories.md"),
+                "<!-- minerva-scored-interests:start -->\n- 5 | Science\n"
+                        + "<!-- minerva-scored-interests:end -->\n",
+                StandardCharsets.UTF_8);
+
+        manager.ensureDefaultHeartbeatFile();
+
+        Path heartbeat = root.resolve("heartbeat.md");
+        assertTrue(Files.isRegularFile(heartbeat));
+        assertTrue(Files.readString(heartbeat, StandardCharsets.UTF_8).contains("Minerva hourly heartbeat"));
+    }
+
+    @Test
+    void doesNotCreateDefaultHeartbeatWithoutPrerequisites() throws IOException {
+        Path root = tempDirectory.resolve("MinervaOS");
+        var manager = new FileManager(root);
+
+        manager.ensureDefaultHeartbeatFile();
+
+        assertTrue(Files.notExists(root.resolve("heartbeat.md")));
+    }
+
+    @Test
+    void preservesExistingHeartbeatFile() throws IOException {
+        Path root = tempDirectory.resolve("MinervaOS");
+        var manager = new FileManager(root);
+        Files.writeString(root.resolve("personality.md"), "I enjoy science.", StandardCharsets.UTF_8);
+        Files.writeString(root.resolve("memories/memories.md"),
+                "<!-- minerva-media-interests:start -->\n- Astronomy\n"
+                        + "<!-- minerva-media-interests:end -->\n",
+                StandardCharsets.UTF_8);
+        Files.writeString(root.resolve("heartbeat.md"), "Custom instructions", StandardCharsets.UTF_8);
+
+        manager.ensureDefaultHeartbeatFile();
+
+        assertEquals("Custom instructions",
+                Files.readString(root.resolve("heartbeat.md"), StandardCharsets.UTF_8));
     }
 
     @Test

@@ -4,6 +4,8 @@ import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.core.reminders.ReminderTools;
+import com.minerva.api.personality.MediaPersonalityService;
+import com.minerva.tools.RssTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
@@ -73,6 +75,8 @@ public class ConversationManager {
     /// @param skillImportService service used to load and refresh imported skills.
     /// @param dateTimeTools date/time tools exposed to the assistant.
     /// @param reminderTools reminder tools exposed to the assistant.
+    /// @param rssTools RSS tools exposed to the assistant.
+    /// @param personalityService personality image workflow exposed to the assistant.
     /// @param activityGate gate shared by foreground requests and the heartbeat.
     /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static synchronized void Initialize(
@@ -81,6 +85,8 @@ public class ConversationManager {
             SkillImportService skillImportService,
             DateTimeTools dateTimeTools,
             ReminderTools reminderTools,
+            RssTools rssTools,
+            MediaPersonalityService personalityService,
             AiActivityGate activityGate
     ) throws IOException {
         ConversationManager.activityGate = activityGate;
@@ -131,7 +137,9 @@ public class ConversationManager {
                 todoTool,
                 new SkillImportTools(skillImportService),
                 dateTimeTools,
-                reminderTools
+                reminderTools,
+                rssTools,
+                personalityService
         };
         if (System.getenv("BRAVE_API_KEY") != null) {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
