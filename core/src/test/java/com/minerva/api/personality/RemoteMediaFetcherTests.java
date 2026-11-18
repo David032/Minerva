@@ -39,7 +39,7 @@ class RemoteMediaFetcherTests {
     }
 
     @Test
-    void fetchesSupportedPublicImageContentWithinTheConfiguredLimit() throws Exception {
+    void fetchesSupportedPublicImageContent() throws Exception {
         var client = mock(CloseableHttpClient.class);
         var response = imageResponse(200, new byte[] {1, 2, 3}, "image/png");
         when(client.execute(any(org.apache.hc.core5.http.ClassicHttpRequest.class))).thenReturn(response);

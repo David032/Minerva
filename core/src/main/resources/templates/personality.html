@@ -39,8 +39,22 @@
             <label for="guidance">Optional PDF or HTML guidance</label>
             <textarea id="guidance" name="guidance" rows="3" maxlength="2000"
                       placeholder="For example: You like this style, but dislike the busy colors."></textarea>
-            <p class="hint">Uploads are limited to 10 MB; each prepared image is limited to 5 MB. Choose a file or image link, not both. If you leave the image comment blank, Minerva will describe the image first. HTML scripts are not run; only eligible referenced media is fetched.</p>
+            <p class="hint">There is no per-file 10 MB limit; the total upload request is limited to 1 GB. Choose a file or image link, not both. If you leave the image comment blank, Minerva will describe the image first. HTML scripts are not run; only eligible referenced media is fetched.</p>
             <button type="submit">Analyze and update personality</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Upload multiple images</h2>
+        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+            <label for="imageFiles">Image files</label>
+            <input id="imageFiles" name="imageFiles" type="file" multiple
+                   accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
+            <label for="batchImageComment">Optional image comment</label>
+            <textarea id="batchImageComment" name="comment" rows="2" maxlength="2000"
+                      placeholder="For example: I like the colors and composition."></textarea>
+            <p class="hint">Each image is processed independently; successful analyses are saved even if another image fails.</p>
+            <button type="submit">Analyze images</button>
         </form>
     </section>
 

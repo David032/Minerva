@@ -54,12 +54,15 @@ class MediaPreprocessorTests {
     }
 
     @Test
-    void rejectsPreparedImagesOverFiveMegabytes() {
+    void preparesImagesLargerThanFiveMegabytes() throws Exception {
+        byte[] largeImage = new byte[5 * 1024 * 1024 + 1];
         var image = new RemoteMediaFetcher.MediaAsset(
-                URI.create("upload://image"), "image/png", new byte[5 * 1024 * 1024 + 1]);
+                URI.create("upload://image"), "image/png", largeImage);
 
-        assertThrows(IllegalArgumentException.class,
-                () -> new MediaPreprocessor(video -> List.of()).prepare(List.of(image)));
+        var prepared = new MediaPreprocessor(video -> List.of()).prepare(List.of(image));
+
+        assertEquals(1, prepared.size());
+        assertEquals(largeImage.length, prepared.getFirst().content().length);
     }
 
     @Test

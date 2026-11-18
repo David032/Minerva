@@ -13,13 +13,12 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * Converts fetched media into bounded image assets that can be analysed by the local model.
+ * Converts fetched media into image assets that can be analysed by the local model.
  */
 @Component
 public class MediaPreprocessor {
     private static final int MAX_MODEL_IMAGES = 12;
     private static final int MAX_IMAGE_PIXELS = 4_000_000;
-    private static final long MAX_MODEL_MEDIA_BYTES = 20L * 1024 * 1024;
     private final VideoFrameExtractor videoFrameExtractor;
 
     /**
@@ -32,18 +31,15 @@ public class MediaPreprocessor {
     }
 
     /**
-     * Prepares images, GIFs, and videos for model analysis and enforces image and aggregate limits.
+     * Prepares images, GIFs, and videos for model analysis.
      *
      * @param assets fetched media assets
      * @return an immutable list of prepared images and sampled video frames
-     * @throws IllegalArgumentException if media or frame counts exceed supported limits
      * @throws IOException if an animated image cannot be decoded or prepared
      */
     public List<RemoteMediaFetcher.MediaAsset> prepare(List<RemoteMediaFetcher.MediaAsset> assets) throws IOException {
         List<RemoteMediaFetcher.MediaAsset> prepared = new ArrayList<>();
-        long totalBytes = 0;
         for (RemoteMediaFetcher.MediaAsset asset : assets) {
-            int previousSize = prepared.size();
             if (asset.contentType().startsWith("video/")) {
                 for (byte[] frame : videoFrameExtractor.extract(asset)) {
                     prepared.add(new RemoteMediaFetcher.MediaAsset(asset.source(), "image/png", frame));
@@ -55,15 +51,6 @@ public class MediaPreprocessor {
             }
             if (prepared.size() > MAX_MODEL_IMAGES) {
                 throw new IllegalArgumentException("This upload contains too many images or video frames to analyze at once.");
-            }
-            for (int i = previousSize; i < prepared.size(); i++) {
-                if (prepared.get(i).content().length > 5 * 1024 * 1024) {
-                    throw new IllegalArgumentException("A prepared image exceeds the 5 MB analysis limit.");
-                }
-                totalBytes += prepared.get(i).content().length;
-            }
-            if (totalBytes > MAX_MODEL_MEDIA_BYTES) {
-                throw new IllegalArgumentException("Prepared media exceeds the 20 MB total analysis limit.");
             }
         }
         return List.copyOf(prepared);
@@ -87,9 +74,6 @@ public class MediaPreprocessor {
                 try (var output = new ByteArrayOutputStream()) {
                     if (!ImageIO.write(frame, "png", output)) {
                         throw new IOException("The GIF frame could not be prepared for model analysis.");
-                    }
-                    if (output.size() > 5 * 1024 * 1024) {
-                        throw new IOException("The prepared GIF frame exceeds the 5 MB analysis limit.");
                     }
                     return output.toByteArray();
                 }

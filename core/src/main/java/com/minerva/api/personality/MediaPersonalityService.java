@@ -14,7 +14,6 @@ import java.util.List;
  */
 @Service
 public class MediaPersonalityService {
-    private static final long MAX_IMAGE_UPLOAD_BYTES = MediaDocumentExtractor.MAX_UPLOAD_BYTES;
     private static final String DEFAULT_IMAGE_REQUEST = "What is this image about?";
     private final MediaDocumentExtractor extractor;
     private final RemoteMediaFetcher mediaFetcher;
@@ -59,7 +58,7 @@ public class MediaPersonalityService {
      * @param file the PDF or HTML document to process
      * @param guidance optional explicit preference guidance from the user
      * @return counts and the resulting personality prompt
-     * @throws IllegalArgumentException if the upload is empty, oversized, or unsupported
+     * @throws IllegalArgumentException if the upload is empty or unsupported
      * @throws IOException if extraction, media retrieval, analysis, or persistence fails
      */
     public synchronized SubmissionResult process(MultipartFile file, String guidance) throws IOException {
@@ -98,6 +97,43 @@ public class MediaPersonalityService {
                     throw new IllegalArgumentException("Only HTML files are supported in a batch.");
                 }
                 SubmissionResult result = process(file, guidance);
+                successfulFileCount++;
+                savedTagCount += result.savedTagCount();
+                analyzedMediaCount += result.analyzedMediaCount();
+            } catch (IllegalArgumentException | IOException e) {
+                failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
+            }
+        }
+        return new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load());
+    }
+
+    /**
+     * Processes uploaded images independently, preserving the filename and error for each failure.
+     *
+     * @param files images selected for batch processing
+     * @param comment optional image-analysis comment applied to each image
+     * @return aggregate counts, per-file failures, and the latest personality prompt
+     * @throws IllegalArgumentException if no non-empty images were selected
+     * @throws IOException if the latest prompt cannot be loaded after processing
+     */
+    public synchronized BatchSubmissionResult processImageBatch(List<MultipartFile> files, String comment)
+            throws IOException {
+        if (files == null || files.stream().noneMatch(file -> file != null && !file.isEmpty())) {
+            throw new IllegalArgumentException("Choose at least one image.");
+        }
+
+        int successfulFileCount = 0;
+        int savedTagCount = 0;
+        int analyzedMediaCount = 0;
+        List<FileFailure> failures = new java.util.ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            String filename = displayFilename(file.getOriginalFilename());
+            try {
+                SubmissionResult result = processImage(file, null, comment);
                 successfulFileCount++;
                 savedTagCount += result.savedTagCount();
                 analyzedMediaCount += result.analyzedMediaCount();
@@ -160,14 +196,12 @@ public class MediaPersonalityService {
         if (description == null || description.isBlank()) {
             throw new IOException("Image analysis returned no description; the saved personality prompt was not changed.");
         }
-        var extraction = new MediaDocumentExtractor.Extraction("Image analysis:\n" + description, List.of(), List.of());
+        var extraction = new MediaDocumentExtractor.Extraction(
+                "Image analysis:\n" + description, List.of(), List.of(), List.of());
         return analyzeAndSave(extraction, List.of(), effectiveComment, 1);
     }
 
     private RemoteMediaFetcher.MediaAsset uploadedImage(MultipartFile file) throws IOException {
-        if (file.getSize() > MAX_IMAGE_UPLOAD_BYTES) {
-            throw new IllegalArgumentException("The uploaded image exceeds the 10 MB limit.");
-        }
         byte[] content = file.getBytes();
         String contentType = imageContentType(content);
         return new RemoteMediaFetcher.MediaAsset(URI.create("upload://image"), contentType, content);
@@ -299,7 +333,7 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Per-file processing error returned from an HTML batch.
+     * Per-file processing error returned from an upload batch.
      *
      * @param filename the selected file's name
      * @param message the validation or processing failure
@@ -308,7 +342,7 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Aggregate result of an HTML batch, including failures that did not prevent other files from processing.
+     * Aggregate result of an upload batch, including failures that did not prevent other files from processing.
      *
      * @param successfulFileCount number of files processed successfully
      * @param savedTagCount number of inferred tags saved across successful files
