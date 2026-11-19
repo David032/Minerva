@@ -29,10 +29,31 @@ Minerva can run a scheduled assistant check using instructions in `heartbeat.md`
 ## Tool search
 
 Tool search is experimental and disabled by default. Set `MINERVA_TOOL_SEARCH_ENABLED=true` in the environment (or the Compose `.env` file) and restart Minerva to let the assistant and heartbeat discover tools on demand using a local keyword index. This can reduce the tool definitions sent to the model, but requires the configured model to search for and call tools reliably; keyword searches can also miss relevant tools. If tools stop working, set it to `false` and restart to restore the normal tool-calling path. Minerva does not automatically retry failed tool calls because a tool may already have performed an action.
+## Discord
+
+Discord is optional. To connect Minerva to a server:
+
+1. Create an application and bot in the [Discord Developer Portal](https://discord.com/developers/applications). On its Bot page, enable the privileged **Message Content Intent** and obtain the bot token.
+2. Use the application's OAuth2 URL generator to invite the bot to your server with the `bot` scope and permission to view channels, read message history and send messages in the channels you want it to use.
+3. Set `DISCORD_TOKEN` in your Compose `.env` file and apply the configuration with `docker compose up -d core` (add `-f prod-compose.yaml` after `compose` for production). Keep the token secret; never commit it or share it. Reset it in the Developer Portal if exposed.
+
+Leave `DISCORD_TOKEN` unset or blank to disable Discord. When enabled, Minerva responds to non-bot messages in channels it can access, not just messages that mention it. Limit the bot's channel access accordingly.
 
 ## Journiv
 
-To enable the optional Journiv integration, set `JOURNIV_URL` to the Journiv server's HTTP(S) base URL and set `JOURNIV_EMAIL` and `JOURNIV_PASSWORD` to dedicated account credentials in the `core` service's `environment` section of `compose.yaml` or `prod-compose.yaml`. From a Compose container, use a hostname reachable from that container; `localhost` refers to the Minerva container itself. Use HTTPS when traffic crosses an untrusted network. The server must allow password registration for a new account. Journiv may make its first account an administrator; provision your own administrator first if that is not intended. Existing accounts must use the configured password. The integration is disabled when `JOURNIV_URL` is empty.
+To connect the optional Journiv integration:
+
+1. Start a Journiv server reachable from Minerva. For a new account, the server must allow password registration. Journiv may make its first account an administrator; provision your own administrator first if that is not intended. For an existing account, use its existing password.
+2. Replace the three empty Journiv entries in the `core` service's `environment` section of `compose.yaml` or `prod-compose.yaml` with the mappings below. Set `JOURNIV_URL` to the server's HTTP(S) base URL and `JOURNIV_EMAIL` and `JOURNIV_PASSWORD` to dedicated account credentials in `.env`. The supplied empty Compose values override `.env`, so setting the values only in `.env` without changing the mappings is not sufficient.
+3. Apply the configuration with `docker compose up -d core` (add `-f prod-compose.yaml` after `compose` for production) and check the `core` logs for connection or authentication errors after activity is recorded. Leave `JOURNIV_URL` unset or empty to disable the integration.
+
+```yaml
+      JOURNIV_URL: ${JOURNIV_URL:-}
+      JOURNIV_EMAIL: ${JOURNIV_EMAIL:-}
+      JOURNIV_PASSWORD: ${JOURNIV_PASSWORD:-}
+```
+
+From a Compose container, use a hostname reachable from that container; `localhost` refers to the Minerva container itself. Use HTTPS when traffic crosses an untrusted network and keep credentials private.
 
 Minerva creates or reuses its own journal and records concise AI-generated summaries of completed text, image and audio interactions and heartbeat outcomes. Image and audio files are not sent to Journiv. A daily entry is created when there is activity, and the assistant can read prior entries. `JOURNIV_TIME_ZONE` selects the IANA time zone for daily entries; it defaults to `MINERVA_TIME_ZONE`, or UTC. `JOURNIV_RETRY_INTERVAL` sets the retry interval in milliseconds (default 60000).
 
@@ -41,6 +62,10 @@ Pending activity is stored in PostgreSQL for retry after a restart or an outage.
 Each delivered summary includes a visible event marker used to recognise retries. Do not remove these markers while activity may still be pending. Updates preserve existing entry content and reject conflicting edits, but Journiv does not expose an atomic daily-entry upsert: run only one Minerva instance per Journiv account to avoid concurrent duplicate entries. Avoid renaming Minerva's dated entries. If several matching journals or daily entries exist, delivery stops and logs an error for manual resolution. Changing the server URL or account leaves existing queued events blocked rather than sending them to the new account; restore the original settings to deliver them.
 
 The `ContinuousIntegration` Journiv test uses `JOURNIV_TEST_URL` when supplied and creates then deletes a dedicated test account. Point it only at a disposable server with password registration enabled; integration tests are not run locally.
+
+## Conversation logging
+
+The logging advisor records the current user message and completed assistant response at INFO level, including heartbeat requests. Logs are written to the console and to `logs` under `MINERVA_DATA_DIR` (or `~/MinervaOS` by default). These logs can contain sensitive conversation text; keep them private. Set `LOGGING_LEVEL_COM_MINERVA_ADVISORS=OFF` to disable the advisor's logs. Media attachments are not logged by the advisor; image requests and responses are also logged separately by the conversation manager.
 
 ## Local backup and restore
 
@@ -81,6 +106,7 @@ The Compose data volume is mounted at the dedicated filesystem-root directory `/
 * IO-KEY - Optional, for AdafruitIO integration
 * IO-USERNAME - Optional, for AdafruitIO integration
 * BRAVE_API_KEY - Optional, for Web searching
+* DISCORD_TOKEN - Optional, for the Discord bot
 * JOURNIV_TIME_ZONE, JOURNIV_RETRY_INTERVAL - Optional, Journiv date zone and retry interval
 
 # Related projects
