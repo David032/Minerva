@@ -75,8 +75,17 @@ public class HeartbeatService {
             return;
         }
 
-        String result = assistant.run(instructions);
-        journivService.record("heartbeat", "", result);
-        logger.info("Heartbeat completed");
+        HeartbeatRun run = new HeartbeatRun();
+        logger.info("Heartbeat run={} started", run.id());
+        try {
+            String result = assistant.run(instructions, run);
+            journivService.record("heartbeat", "", result);
+            logger.info("Heartbeat run={} completed actions={} responseCharacters={} response={}", run.id(),
+                    run.actionCount(), result == null ? 0 : result.length(), ActivityLogText.bounded(result));
+        } catch (RuntimeException exception) {
+            logger.error("Heartbeat run={} failed actions={} type={}", run.id(), run.actionCount(),
+                    exception.getClass().getSimpleName());
+            throw exception;
+        }
     }
 }

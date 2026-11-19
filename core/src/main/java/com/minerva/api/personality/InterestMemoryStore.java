@@ -2,6 +2,8 @@ package com.minerva.api.personality;
 
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,7 @@ import java.util.Locale;
  */
 @Component
 public class InterestMemoryStore {
+    private static final Logger logger = LoggerFactory.getLogger(InterestMemoryStore.class);
     private static final String MEDIA_START = "<!-- minerva-media-interests:start -->";
     private static final String MEDIA_END = "<!-- minerva-media-interests:end -->";
     private static final String SCORED_START = "<!-- minerva-scored-interests:start -->";
@@ -77,16 +80,22 @@ public class InterestMemoryStore {
                 unique.putIfAbsent(tag.toLowerCase(Locale.ROOT), tag);
             }
         }
+        int added = 0;
         for (String tag : tags) {
             String normalized = tag.replaceAll("[\\p{Cntrl}]", "").replaceAll("\\s+", " ").trim();
             if (!normalized.isEmpty()) {
-                unique.putIfAbsent(normalized.toLowerCase(Locale.ROOT), normalized);
+                if (unique.putIfAbsent(normalized.toLowerCase(Locale.ROOT), normalized) == null) {
+                    added++;
+                }
             }
         }
         String managedBlock = MEDIA_START + "\n## Interests from uploaded media\n"
                 + unique.values().stream().map(tag -> "- " + tag).reduce("", (a, b) -> a + b + "\n")
                 + MEDIA_END;
         write(replaceSection(original, MEDIA_START, MEDIA_END, managedBlock));
+        if (added > 0) {
+            logger.info("Memory added source=media-interests count={}", added);
+        }
     }
 
     /**
@@ -145,7 +154,8 @@ public class InterestMemoryStore {
         for (ScoredInterest interest : loadScoredInterests()) {
             interests.put(interest.keyword().toLowerCase(Locale.ROOT), interest);
         }
-        interests.put(normalized.toLowerCase(Locale.ROOT), new ScoredInterest(normalized, score));
+        ScoredInterest saved = new ScoredInterest(normalized, score);
+        ScoredInterest previous = interests.put(normalized.toLowerCase(Locale.ROOT), saved);
 
         String managedBlock = SCORED_START + "\n## User-scored interests\n"
                 + interests.values().stream()
@@ -153,7 +163,10 @@ public class InterestMemoryStore {
                 .reduce("", (a, b) -> a + b + "\n")
                 + SCORED_END;
         write(replaceSection(original, SCORED_START, SCORED_END, managedBlock));
-        return new ScoredInterest(normalized, score);
+        if (!saved.equals(previous)) {
+            logger.info("Memory {} source=scored-interest", previous == null ? "added" : "updated");
+        }
+        return saved;
     }
 
     /**

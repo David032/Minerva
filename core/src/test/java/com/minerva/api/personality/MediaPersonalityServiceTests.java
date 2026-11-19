@@ -3,7 +3,10 @@ package com.minerva.api.personality;
 import com.minerva.core.personality.PersonalityPromptStore;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -16,6 +19,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -168,7 +172,8 @@ class MediaPersonalityServiceTests {
     }
 
     @Test
-    void rollsBackTagMemoriesWhenPromptPersistenceFails() throws Exception {
+    @ExtendWith(OutputCaptureExtension.class)
+    void rollsBackTagMemoriesWhenPromptPersistenceFails(CapturedOutput output) throws Exception {
         Path promptPath = tempDirectory.resolve("personality.md");
         new PersonalityPromptStore(promptPath).save("Existing preferences");
         var promptStore = new FailingPersonalityPromptStore(promptPath);
@@ -188,6 +193,7 @@ class MediaPersonalityServiceTests {
 
         assertEquals("Existing preferences", new PersonalityPromptStore(promptPath).load());
         assertTrue(Files.notExists(memoryPath));
+        assertFalse(output.getOut().contains("Memory added source=media-interests"));
     }
 
     @Test

@@ -27,6 +27,8 @@ import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
+import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -41,6 +43,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Map;
 
 
 public class ConversationManager {
@@ -181,14 +184,27 @@ public class ConversationManager {
     }
 
     private static ChatClient buildChatClient(Advisor[] advisors, Object[] tools, String pathToMemories) {
+        ToolCallback[] callbacks = loggingCallbacks(tools);
         return baseChatClientBuilder.clone()
                 .defaultAdvisors(advisors)
                 .defaultSystem(p -> p.text(activeSystemPrompt)
                         .param(AgentEnvironment.ENVIRONMENT_INFO_KEY, AgentEnvironment.info())
                         .param(AgentEnvironment.GIT_STATUS_KEY, AgentEnvironment.gitStatus())
                         .param("MEMORIES_ROOT_DIERCTORY", pathToMemories))
-                .defaultTools(tools)
+                .defaultTools((Object[]) callbacks)
                 .build();
+    }
+
+    /**
+     * Wraps the same annotated tools for foreground and heartbeat activity logging.
+     *
+     * @param tools assistant tool objects
+     * @return callbacks with their definitions and metadata preserved
+     */
+    static ToolCallback[] loggingCallbacks(Object[] tools) {
+        return Arrays.stream(ToolCallbacks.from(tools))
+                .map(ActivityLoggingToolCallback::new)
+                .toArray(ToolCallback[]::new);
     }
 
     /**
@@ -238,14 +254,16 @@ public class ConversationManager {
      * <p>The caller must hold the exclusive idle slot from {@link AiActivityGate}.</p>
      *
      * @param instructions contents of the configured heartbeat file
+     * @param run identifies and tracks this heartbeat's tool invocations
      * @return assistant response
      */
-    public static String sendHeartbeat(String instructions) {
+    public static String sendHeartbeat(String instructions, HeartbeatRun run) {
         return heartbeatChatClient
                 .prompt()
                 .system(system -> system.text(currentPrompt() + "\n\n" + HEARTBEAT_SYSTEM_PROMPT))
                 .user("Follow these recurring heartbeat instructions from the local operator:\n\n" + instructions)
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, HEARTBEAT_SESSION_ID))
+                .toolContext(Map.of(HeartbeatRun.CONTEXT_KEY, run))
                 .call()
                 .content();
     }

@@ -279,8 +279,8 @@ public class MediaPersonalityService {
         byte[] oldPrompt = promptStore.snapshot();
         byte[] oldMemories = memoryStore.snapshot();
         try {
-            memoryStore.addAll(extraction.tags());
             promptStore.save(updatedPrompt);
+            memoryStore.addAll(extraction.tags());
         } catch (IOException | RuntimeException e) {
             try {
                 promptStore.restore(oldPrompt);

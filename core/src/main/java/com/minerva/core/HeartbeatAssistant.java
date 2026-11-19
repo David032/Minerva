@@ -9,7 +9,8 @@ public interface HeartbeatAssistant {
      * Sends heartbeat instructions to the assistant.
      *
      * @param instructions contents of {@code heartbeat.md}
+     * @param run identifies and tracks this heartbeat's tool invocations
      * @return assistant response
      */
-    String run(String instructions);
+    String run(String instructions, HeartbeatRun run);
 }
