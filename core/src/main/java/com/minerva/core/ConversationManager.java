@@ -21,8 +21,12 @@ import org.springaicommunity.agent.tools.*;
 import org.springaicommunity.agent.utils.AgentEnvironment;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
+import org.springframework.ai.chat.client.advisor.api.MemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
+import org.springframework.ai.tool.toolsearch.index.lucene.LuceneToolIndex;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
@@ -83,6 +87,7 @@ public class ConversationManager {
     /// @param activityGate gate shared by foreground requests and the heartbeat.
     /// @param journivService activity recorder for the optional Journiv integration.
     /// @param journivTools read-only journal tools.
+    /// @param toolSearchEnabled whether to progressively discover tools.
     /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static synchronized void Initialize(
             ChatClient.Builder builder,
@@ -94,7 +99,8 @@ public class ConversationManager {
             MediaPersonalityService personalityService,
             AiActivityGate activityGate,
             JournivService journivService,
-            JournivTools journivTools
+            JournivTools journivTools,
+            boolean toolSearchEnabled
     ) throws IOException {
         ConversationManager.activityGate = activityGate;
         ConversationManager.journivService = journivService;
@@ -136,6 +142,11 @@ public class ConversationManager {
                 heartbeatShortTermMemoryAdvisor,
                 new com.minerva.advisors.LoggerAdvisor()
         };
+        activeAdvisors = withToolSearch(activeAdvisors, toolSearchEnabled);
+        heartbeatAdvisors = withToolSearch(heartbeatAdvisors, toolSearchEnabled);
+        if (toolSearchEnabled) {
+            logger.info("Tool search is enabled for assistant and heartbeat conversations.");
+        }
         activeTools = new Object[] {
                 ShellTools.builder().build(),
                 FileSystemTools.builder().build(),
@@ -160,6 +171,30 @@ public class ConversationManager {
         }
         skillImportService.setSkillChangeListener(ConversationManager::refreshSkills);
         refreshSkills();
+    }
+
+    /**
+     * Adds a session-scoped search advisor without changing the default tool-calling path when disabled.
+     *
+     * @param advisors existing client advisors
+     * @param enabled whether tool search is enabled
+     * @return the advisors to install on the client
+     */
+    static Advisor[] withToolSearch(Advisor[] advisors, boolean enabled) {
+        if (!enabled) {
+            return advisors;
+        }
+        boolean downstreamMemory = Arrays.stream(advisors)
+                .anyMatch(advisor -> advisor instanceof MemoryAdvisor
+                        && advisor.getOrder() > ToolCallingAdvisor.DEFAULT_ORDER);
+        var toolSearch = ToolSearchToolCallingAdvisor.builder()
+                .toolIndex(new LuceneToolIndex())
+                .sessionIdKeyName(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY)
+                .conversationHistoryEnabled(!downstreamMemory)
+                .build();
+        Advisor[] result = Arrays.copyOf(advisors, advisors.length + 1);
+        result[advisors.length] = toolSearch;
+        return result;
     }
 
     private static synchronized void refreshSkills() throws IOException {

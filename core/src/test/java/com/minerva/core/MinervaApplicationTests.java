@@ -2,6 +2,10 @@ package com.minerva.core;
 
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
+import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +18,9 @@ import static org.hamcrest.Matchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Import(MinervaTestConfiguration.class)
 @SpringBootTest
@@ -25,6 +32,9 @@ class MinervaApplicationTests {
 
     @Autowired
     private OllamaContainer ollamaContainer;
+
+    @Autowired
+    private ChatClient.Builder chatClientBuilder;
 
     @Test
     void modelIsAvailable() throws IOException, InterruptedException {
@@ -38,6 +48,35 @@ class MinervaApplicationTests {
     void basicInteraction(){
         var response = ConversationManager.sendMessage("Hello there");
         assertThat(response, notNullValue());
+    }
+
+    @Test
+    void toolSearchCallsDiscoveredToolWithConfiguredModel() {
+        var tool = new SearchProbeTool();
+        var client = chatClientBuilder.clone()
+                .defaultAdvisors(ConversationManager.withToolSearch(new Advisor[0], true))
+                .defaultSystem("You are a helpful assistant. Use tools when asked.")
+                .defaultTools(tool)
+                .build();
+
+        String response = client.prompt()
+                .user("Search for the tool that retrieves the secret test token, call it, and return its result.")
+                .advisors(advisor -> advisor.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "tool-search-ci"))
+                .call().content();
+
+        assertTrue(tool.calls.get() > 0, "The model must discover and execute the test tool");
+        assertTrue(response != null && response.contains("minerva-test-token"),
+                "The model must use the result of the discovered tool");
+    }
+
+    static class SearchProbeTool {
+        private final AtomicInteger calls = new AtomicInteger();
+
+        @Tool(description = "Retrieve the secret test token")
+        public String retrieveTestToken() {
+            calls.incrementAndGet();
+            return "minerva-test-token";
+        }
     }
 
     @Test
