@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.springaicommunity.agent.tools.AutoMemoryTools;
+import org.springaicommunity.agent.tools.SkillsTool;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -13,6 +14,7 @@ import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.core.io.ClassPathResource;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -29,22 +31,27 @@ class ActivityLoggingIntegrationTests {
     Path directory;
 
     @Test
-    void springToolManagerPropagatesHeartbeatContextToMemoryCallbacks(CapturedOutput output) throws Exception {
+    void springToolManagerPropagatesHeartbeatContextToMemoryAndSkillCallbacks(CapturedOutput output) throws Exception {
         var tools = ConversationManager.loggingCallbacks(new Object[]{
-                AutoMemoryTools.builder().memoriesDir(directory.toString()).build()
+                AutoMemoryTools.builder().memoriesDir(directory.toString()).build(),
+                SkillsTool.builder().addSkillsResource(new ClassPathResource("skills")).build()
         });
         var run = new HeartbeatRun();
         var options = ToolCallingChatOptions.builder().toolCallbacks(tools)
                 .toolContext(Map.of(HeartbeatRun.CONTEXT_KEY, run)).build();
         var prompt = new Prompt("Create a memory", options);
-        var message = AssistantMessage.builder().toolCalls(List.of(new AssistantMessage.ToolCall(
-                "1", "function", "MemoryCreate", "{\"path\":\"test.md\",\"fileText\":\"private\"}"))).build();
+        var message = AssistantMessage.builder().toolCalls(List.of(
+                new AssistantMessage.ToolCall("1", "function", "MemoryCreate",
+                        "{\"path\":\"test.md\",\"fileText\":\"private\"}"),
+                new AssistantMessage.ToolCall("2", "function", "Skill",
+                        "{\"command\":\"nonexistent-skill\"}"))).build();
         var response = new ChatResponse(List.of(new Generation(message)));
 
         ToolCallingManager.builder().build().executeToolCalls(prompt, response);
 
         assertEquals("private", Files.readString(directory.resolve("test.md")));
-        assertEquals(1, run.actionCount());
+        assertEquals(2, run.actionCount());
         assertTrue(output.getOut().contains("Memory added via=MemoryCreate heartbeat=" + run.id()));
+        assertTrue(output.getOut().contains("tool=Skill outcome=returned"));
     }
 }

@@ -29,6 +29,7 @@ import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy
 import org.springframework.ai.session.compaction.TurnCountTrigger;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -44,6 +45,7 @@ import java.net.MalformedURLException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Stream;
 
 
 public class ConversationManager {
@@ -196,13 +198,22 @@ public class ConversationManager {
     }
 
     /**
-     * Wraps the same annotated tools for foreground and heartbeat activity logging.
+     * Wraps annotated tools, callbacks and providers for foreground and heartbeat activity logging.
      *
-     * @param tools assistant tool objects
+     * @param tools assistant tools, callbacks or callback providers
      * @return callbacks with their definitions and metadata preserved
      */
     static ToolCallback[] loggingCallbacks(Object[] tools) {
-        return Arrays.stream(ToolCallbacks.from(tools))
+        return Arrays.stream(tools)
+                .flatMap(tool -> {
+                    if (tool instanceof ToolCallback callback) {
+                        return Stream.of(callback);
+                    }
+                    if (tool instanceof ToolCallbackProvider provider) {
+                        return Arrays.stream(provider.getToolCallbacks());
+                    }
+                    return Arrays.stream(ToolCallbacks.from(tool));
+                })
                 .map(ActivityLoggingToolCallback::new)
                 .toArray(ToolCallback[]::new);
     }

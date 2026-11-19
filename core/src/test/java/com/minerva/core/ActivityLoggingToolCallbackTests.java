@@ -5,11 +5,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.springaicommunity.agent.tools.AutoMemoryTools;
+import org.springaicommunity.agent.tools.SkillsTool;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.core.io.ClassPathResource;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -94,6 +97,34 @@ class ActivityLoggingToolCallbackTests {
         String logs = output.getOut();
         assertTrue(logs.contains("result=result " + "x".repeat(493) + "..."));
         assertFalse(logs.contains("x".repeat(494)));
+    }
+
+    @Test
+    void registersAnnotatedToolsExistingCallbacksAndProviders(CapturedOutput output) {
+        ToolCallback skill = SkillsTool.builder().addSkillsResource(new ClassPathResource("skills")).build();
+        ToolCallback provided = mock(ToolCallback.class);
+        when(provided.getToolDefinition()).thenReturn(org.springframework.ai.tool.definition.ToolDefinition.builder()
+                .name("provided").description("provided").inputSchema("{}").build());
+        when(provided.call("{}", null)).thenReturn("provider result");
+        ToolCallbackProvider provider = () -> new ToolCallback[]{provided};
+        var callbacks = ConversationManager.loggingCallbacks(new Object[]{
+                AutoMemoryTools.builder().memoriesDir(directory.toString()).build(), skill, provider
+        });
+        var wrappedSkill = Arrays.stream(callbacks)
+                .filter(callback -> callback.getToolDefinition().name().equals("Skill")).findFirst().orElseThrow();
+        var wrappedProvided = Arrays.stream(callbacks)
+                .filter(callback -> callback.getToolDefinition().name().equals("provided")).findFirst().orElseThrow();
+        HeartbeatRun run = new HeartbeatRun();
+        ToolContext context = new ToolContext(Map.of(HeartbeatRun.CONTEXT_KEY, run));
+        String input = "{\"command\":\"nonexistent-skill\"}";
+
+        assertSame(skill.getToolDefinition(), wrappedSkill.getToolDefinition());
+        assertSame(skill.getToolMetadata(), wrappedSkill.getToolMetadata());
+        assertEquals(skill.call(input, context), wrappedSkill.call(input, context));
+        assertEquals("provider result", wrappedProvided.call("{}", null));
+        assertTrue(Arrays.stream(callbacks).anyMatch(callback -> callback.getToolDefinition().name().equals("MemoryCreate")));
+        assertEquals(1, run.actionCount());
+        assertTrue(output.getOut().contains("tool=Skill outcome=returned"));
     }
 
     private static ToolCallback wrap(ToolCallback[] callbacks, String name) {
