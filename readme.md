@@ -60,6 +60,10 @@ Each delivered summary includes a visible event marker used to recognise retries
 
 The `ContinuousIntegration` Journiv test uses `JOURNIV_TEST_URL` when supplied and creates then deletes a dedicated test account. Point it only at a disposable server with password registration enabled; integration tests are not run locally.
 
+## Conversation logging
+
+The logging advisor records the current user message and completed assistant response at INFO level, including heartbeat requests. Logs are written to the console and to `logs` under `MINERVA_DATA_DIR` (or `~/MinervaOS` by default). These logs can contain sensitive conversation text; keep them private. Set `LOGGING_LEVEL_COM_MINERVA_ADVISORS=OFF` to disable the advisor's logs. Media attachments are not logged by the advisor; image requests and responses are also logged separately by the conversation manager.
+
 ## Local backup and restore
 
 Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, `personality.md`, and `heartbeat.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.
