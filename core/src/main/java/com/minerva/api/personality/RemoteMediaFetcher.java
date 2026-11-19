@@ -29,7 +29,7 @@ import java.util.Set;
  */
 @Component
 public class RemoteMediaFetcher {
-    private static final int MAX_MEDIA_COUNT = 8;
+    private static final int MAX_MEDIA_COUNT = 50;
     private static final int MAX_MEDIA_BYTES = 5 * 1024 * 1024;
     private static final int MAX_TOTAL_MEDIA_BYTES = 20 * 1024 * 1024;
     private static final Set<String> SUPPORTED_TYPES = Set.of(
@@ -105,7 +105,7 @@ public class RemoteMediaFetcher {
      */
     public List<MediaAsset> fetch(List<URI> references) throws IOException {
         if (references.size() > MAX_MEDIA_COUNT) {
-            throw new IllegalArgumentException("The HTML file references more than 8 media items.");
+            throw new IllegalArgumentException("The HTML file references more than 50 media items.");
         }
         List<MediaAsset> assets = new ArrayList<>();
         long totalBytes = 0;

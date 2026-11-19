@@ -16,7 +16,7 @@
             <p class="intro">Share a PDF, HTML page, or image so Minerva can learn from its content and your guidance.</p>
         </div>
         <nav class="header-links">
-            <a href="/personality/interests">Manage scored interests</a>
+            <a href="/personality/interests">Manage interests</a>
             <a href="/">Back to chat</a>
         </nav>
     </header>
@@ -67,7 +67,7 @@
             <label for="batchImageComment">Optional image comment</label>
             <textarea id="batchImageComment" name="comment" rows="2" maxlength="2000"
                       placeholder="For example: I like the colors and composition."></textarea>
-            <p class="hint">Each image is processed independently; successful analyses are saved even if another image fails.</p>
+            <p class="hint">A maximum of 50 files can be uploaded in one go. Each image is processed independently; successful analyses are saved even if another image fails.</p>
             <button type="submit">Analyze images</button>
         </form>
     </section>
@@ -80,7 +80,7 @@
             <label for="batchGuidance">Optional guidance for this batch</label>
             <textarea id="batchGuidance" name="guidance" rows="3" maxlength="2000"
                       placeholder="For example: I like the art styles in these pages."></textarea>
-            <p class="hint">Each file is processed independently through the same HTML workflow. Successful files are saved even if another file fails; any failures are listed by filename.</p>
+            <p class="hint">A maximum of 50 files can be uploaded in one go. Each file is processed independently through the same HTML workflow. Up to 50 referenced media items per page are analysed; successful files are saved even if another file fails, and failures are listed by filename.</p>
             <button type="submit">Analyze HTML files</button>
         </form>
     </section>
