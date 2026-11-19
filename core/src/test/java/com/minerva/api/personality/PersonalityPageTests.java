@@ -48,6 +48,7 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Shape Minerva")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("imageUrl")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"imageFiles\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"zipFile\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleUrl\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleComment\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
@@ -175,6 +176,37 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy botanical art.")));
 
         verify(service).processImageBatch(any(), eq("Shared comment"));
+    }
+
+    @Test
+    void routesZipGuidanceAndDisplaysPartialResults() throws Exception {
+        when(service.processZip(any(), eq("I like this"))).thenReturn(
+                new MediaPersonalityService.BatchSubmissionResult(1, 1, 1,
+                        List.of(new MediaPersonalityService.FileFailure("folder/bad.txt", "Unsupported file.")),
+                        "I enjoy gardens."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "zipFile", "pages.zip", "application/zip", new byte[] {1}))
+                        .param("guidance", "I like this"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Processed 1 ZIP file")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("folder/bad.txt")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy gardens.")));
+        verify(service).processZip(any(), eq("I like this"));
+    }
+
+    @Test
+    void rejectsZipCombinedWithAnotherSource() throws Exception {
+        when(service.loadPrompt()).thenReturn("");
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "zipFile", "pages.zip", "application/zip", new byte[] {1}))
+                        .param("articleUrl", "https://example.test/article"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Submit a ZIP separately from other files or URLs.")));
+        org.mockito.Mockito.verify(service, org.mockito.Mockito.never()).processZip(any(), any());
     }
 
     @Test
