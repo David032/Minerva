@@ -2,24 +2,24 @@ package com.minerva.core;
 
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.restclient.test.autoconfigure.AutoConfigureRestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.test.web.servlet.client.RestTestClient;
-import org.springframework.web.client.RestClient;
+import org.springframework.util.LinkedMultiValueMap;
 import org.testcontainers.ollama.OllamaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
+import com.minerva.core.journiv.JournivService;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
-import org.springframework.http.client.JdkClientHttpRequestFactory;
-import org.springframework.test.web.servlet.client.RestTestClient;
 import java.time.Duration;
-import java.util.Objects;
 
 import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
@@ -31,6 +31,9 @@ public class MinervaApiTests {
 
     @MockitoBean
     private HeartbeatService heartbeatService;
+
+    @MockitoBean
+    private JournivService journivService;
 
     @Autowired
     private PostgreSQLContainer postgresContainer;
@@ -62,6 +65,7 @@ public class MinervaApiTests {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class);
+        verify(journivService).record(eq("text"), eq("Hello there"), anyString());
     }
 
     @Test
@@ -78,6 +82,7 @@ public class MinervaApiTests {
                 .expectStatus().isOk()
                 .expectBody(String.class)
                 .value(body -> {
+                    assert body != null;
                     Assertions.assertTrue(body.contains("What can I help you with?"));
                     Assertions.assertTrue(body.contains("id=\"message-form\""));
                     Assertions.assertTrue(body.contains("id=\"message-input\""));
@@ -90,13 +95,19 @@ public class MinervaApiTests {
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class)
-                .value(body -> Assertions.assertTrue(body.contains("fetch(\"/message\"")));
+                .value(body -> {
+                    assert body != null;
+                    Assertions.assertTrue(body.contains("fetch(\"/message\""));
+                });
 
         restTestClient.get().uri("/chat.css")
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class)
-                .value(body -> Assertions.assertTrue(body.contains(".message.user")));
+                .value(body -> {
+                    assert body != null;
+                    Assertions.assertTrue(body.contains(".message.user"));
+                });
     }
 
     @Test
@@ -106,6 +117,7 @@ public class MinervaApiTests {
                 .expectStatus().isOk()
                 .expectBody(String.class)
                 .value(body -> {
+                    assert body != null;
                     Assertions.assertTrue(body.contains("Shape Minerva&#39;s personality")
                             || body.contains("Shape Minerva's personality"));
                     Assertions.assertTrue(body.contains("multipart/form-data"));
@@ -116,13 +128,21 @@ public class MinervaApiTests {
 
     @Test
     void ImageInteraction() {
-        restTestClient
-                .post().uri(
-                        uriBuilder ->
-                                uriBuilder.host("localhost").port(port)
-                                .path("/image").queryParam("message","What do you think about this image?")
-                                        .queryParam("imagePath", "src/test/resources/TestImage.jpg")
-                                        .build()).exchange().expectBody(String.class);
+        var multipartData = new LinkedMultiValueMap<String, Object>();
+        multipartData.add("message", "What do you think about this image?");
+        multipartData.add("image", new ClassPathResource("TestImage.jpg"));
+
+        restTestClient.post().uri("/image")
+                .contentType(MediaType.MULTIPART_FORM_DATA)
+                .body(multipartData)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(String.class)
+                .value(response -> {
+                    assert response != null;
+                    Assertions.assertFalse(response.isBlank());
+                });
+        verify(journivService).record(eq("image"), eq("What do you think about this image?"), anyString());
     }
 
     @Test

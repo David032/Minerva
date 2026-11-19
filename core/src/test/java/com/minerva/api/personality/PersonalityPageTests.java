@@ -32,6 +32,9 @@ class PersonalityPageTests {
     private MediaPersonalityService service;
 
     @MockitoBean
+    private RemoteArticleFetcher articleFetcher;
+
+    @MockitoBean
     private JdbcChatMemoryRepository jdbcChatMemoryRepository;
 
     @Test
@@ -44,7 +47,12 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/personality/upload")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Shape Minerva")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("imageUrl")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"imageFiles\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"zipFile\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleUrl\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleComment\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("maximum of 50 files")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy quiet gardens.")));
     }
 
@@ -94,6 +102,25 @@ class PersonalityPageTests {
     }
 
     @Test
+    void routesArticleLinksAndCommentsToPreferenceAnalysis() throws Exception {
+        when(articleFetcher.fetch("https://news.example.test/story"))
+                .thenReturn(new RemoteArticleFetcher.Article(
+                        java.net.URI.create("https://news.example.test/story"), "A story", "Article text"));
+        when(service.processArticle(any(), eq("I liked the thoughtful analysis."))).thenReturn(
+                new MediaPersonalityService.SubmissionResult(0, 0, "I enjoy thoughtful analysis."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .param("articleUrl", "https://news.example.test/story")
+                        .param("articleComment", "I liked the thoughtful analysis."))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Article analysis complete")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy thoughtful analysis.")));
+
+        verify(articleFetcher).fetch("https://news.example.test/story");
+        verify(service).processArticle(any(), eq("I liked the thoughtful analysis."));
+    }
+
+    @Test
     void routesUploadedImagesAndCommentsToImageAnalysis() throws Exception {
         when(service.processImage(any(), org.mockito.ArgumentMatchers.isNull(), eq("Describe this image.")))
                 .thenReturn(new MediaPersonalityService.SubmissionResult(0, 1, "I enjoy this image."));
@@ -127,6 +154,73 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("broken.html")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("No readable HTML content.")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy botanical art.")));
+    }
+
+    @Test
+    void processesMultipleImageFilesAndDisplaysBatchResults() throws Exception {
+        when(service.processImageBatch(any(), eq("Shared comment"))).thenReturn(
+                new MediaPersonalityService.BatchSubmissionResult(
+                        1, 0, 1,
+                        List.of(new MediaPersonalityService.FileFailure("broken.png", "Unsupported image.")),
+                        "I enjoy botanical art."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "imageFiles", "good.png", "image/png", new byte[] {1}))
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "imageFiles", "broken.png", "image/png", new byte[] {2}))
+                        .param("comment", "Shared comment"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Processed 1 image(s)")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("broken.png")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy botanical art.")));
+
+        verify(service).processImageBatch(any(), eq("Shared comment"));
+    }
+
+    @Test
+    void routesZipGuidanceAndDisplaysPartialResults() throws Exception {
+        when(service.processZip(any(), eq("I like this"))).thenReturn(
+                new MediaPersonalityService.BatchSubmissionResult(1, 1, 1,
+                        List.of(new MediaPersonalityService.FileFailure("folder/bad.txt", "Unsupported file.")),
+                        "I enjoy gardens."));
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "zipFile", "pages.zip", "application/zip", new byte[] {1}))
+                        .param("guidance", "I like this"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Processed 1 ZIP file")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("folder/bad.txt")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy gardens.")));
+        verify(service).processZip(any(), eq("I like this"));
+    }
+
+    @Test
+    void rejectsZipCombinedWithAnotherSource() throws Exception {
+        when(service.loadPrompt()).thenReturn("");
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "zipFile", "pages.zip", "application/zip", new byte[] {1}))
+                        .param("articleUrl", "https://example.test/article"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Submit a ZIP separately from other files or URLs.")));
+        org.mockito.Mockito.verify(service, org.mockito.Mockito.never()).processZip(any(), any());
+    }
+
+    @Test
+    void rejectsMixedHtmlAndImageBatches() throws Exception {
+        when(service.loadPrompt()).thenReturn("");
+
+        mockMvc.perform(multipart("/personality/upload")
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "htmlFiles", "page.html", "text/html", "<p>Example</p>".getBytes()))
+                        .file(new org.springframework.mock.web.MockMultipartFile(
+                                "imageFiles", "photo.png", "image/png", new byte[] {1})))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Submit either an HTML batch or an image batch")));
     }
 
     @Test

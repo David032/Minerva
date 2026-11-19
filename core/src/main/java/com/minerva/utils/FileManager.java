@@ -8,11 +8,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
@@ -226,6 +229,48 @@ public class FileManager {
      */
     public Path getHeartbeatFilePath() {
         return minervaPath.resolve("heartbeat.md");
+    }
+
+    /**
+     * Creates the application default heartbeat when personality and interest data are available.
+     *
+     * <p>An existing heartbeat file is never replaced.</p>
+     *
+     * @throws IOException if the default resource or heartbeat file cannot be read or written
+     */
+    public void ensureDefaultHeartbeatFile() throws IOException {
+        Path heartbeatPath = getHeartbeatFilePath();
+        if (Files.exists(heartbeatPath)) {
+            return;
+        }
+        Path personalityPath = getPersonalityPromptPath();
+        if (!Files.isRegularFile(personalityPath)
+                || Files.readString(personalityPath, StandardCharsets.UTF_8).isBlank()) {
+            return;
+        }
+        Path memoriesPath = this.memoriesPath.resolve("memories.md");
+        if (!Files.isRegularFile(memoriesPath)) {
+            return;
+        }
+        String memories = Files.readString(memoriesPath, StandardCharsets.UTF_8);
+        if (!memories.contains("<!-- minerva-media-interests:start -->")
+                && !memories.contains("<!-- minerva-scored-interests:start -->")) {
+            return;
+        }
+
+        try (InputStream resource = FileManager.class.getResourceAsStream("/heartbeat/default-heartbeat.md")) {
+            if (resource == null) {
+                throw new IOException("Default heartbeat resource was not found.");
+            }
+            Files.createDirectories(minervaPath);
+            try {
+                Files.write(heartbeatPath, resource.readAllBytes(),
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                logger.info("Created default heartbeat instructions at {}", heartbeatPath.toAbsolutePath());
+            } catch (java.nio.file.FileAlreadyExistsException ignored) {
+                // Another startup or heartbeat tick created the file first.
+            }
+        }
     }
 
     /// <summary>

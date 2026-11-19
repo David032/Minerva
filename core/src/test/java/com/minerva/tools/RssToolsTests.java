@@ -49,6 +49,18 @@ class RssToolsTests {
         assertEquals(List.of(), rssTools.getHeadlines("Missing"));
     }
 
+    @Test
+    void listsSavedFeedTitlesAndUrls() throws IOException {
+        var feed = new RssData();
+        feed.setTitle("BBC News");
+        feed.setLink("https://example.com/rss");
+        var fileManager = mock(FileManager.class);
+        when(fileManager.GetRssFeeds()).thenReturn(List.of(feed));
+        var rssTools = new RssTools(fileManager);
+
+        assertEquals(List.of("BBC News: https://example.com/rss"), rssTools.listFeeds());
+    }
+
     private static String createFeedXml(int itemCount) {
         var xml = new StringBuilder("""
                 <?xml version="1.0" encoding="UTF-8"?>

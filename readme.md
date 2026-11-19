@@ -1,16 +1,16 @@
 # Minerva
 Minerva is an experimental, entirely local AI system, designed for the raspberry pi 5. Minerva eschews fast responses in favour of slower and more thoughtful responses, 
-and is *intended* to be a personal assistant that can be used for a variety of tasks. Minerva is designed to be semi-modular, with functionality implemented either as java-based tools or advisors, or as markdown skills.
+and is *intended* to be a personal assistant that can be used for a variety of tasks. Minerva is designed to be semi-modular, with functionality implemented either as Java-based tools or advisors, or as Markdown skills.
 
 # Capabilities(W.i.P)
 * Short and long term memory
 * API based interface
-* Media-driven personality customization
+* Media-driven personality customisation
 
-## Personality customization
-Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide a public image URL. Image comments and document guidance are optional; without an image comment, Minerva first asks what the image is about. Minerva stores interest tags and a separate personality prompt in its local `MinervaOS` data directory. HTML-referenced public images, GIFs, and videos are fetched with size and time limits; GIFs and sampled video frames are prepared for the local model. Private-network and localhost URLs are rejected.
+## Personality customisation
+Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide a public image URL. You can also upload a ZIP containing up to 10,000 files in nested folders, with shared preference guidance for HTML pages and images. ZIPs are limited to 1 GB compressed, 20 MB per non-CSS file, 2 GB uncompressed in total for non-CSS files, and 10,000 entries including directories and ignored CSS files. CSS files are ignored without being extracted; other unsupported files are reported as failures. Validated files are staged in temporary storage; allow space for the expanded contents and copies of the compressed upload. Files are processed independently and failures are reported; relative references to files within the ZIP are not resolved. Large archives can take a long time to process; keep the page open and ensure any reverse proxy permits a long-running request. Image comments and document guidance are optional; without an image comment, Minerva first asks what the image is about. Minerva stores interest tags and a separate personality prompt in its local `MinervaOS` data directory. HTML-referenced public images, GIFs, and videos are fetched with size and time limits; GIFs and sampled video frames are prepared for the local model. Private-network and localhost URLs are rejected.
 
-The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyze referenced videos.
+The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyse referenced videos.
 
 ## Skills
 
@@ -20,11 +20,54 @@ The assistant can also find and install skills using its import tool. This uses 
 
 ## Reminders
 
-Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Due reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
+Create, list, and cancel one-time reminders in chat, or manage them from the chat page. Reminders are stored in the local PostgreSQL database and survive application restarts. Upcoming reminders remain visible in the chat page until acknowledged; after downtime, overdue reminders are recovered as due. Set `MINERVA_TIME_ZONE` to the desired IANA time-zone ID (defaults to UTC) for local date/time input without an explicit offset. Times in daylight-saving gaps are rejected; ambiguous local times use the earlier offset. Past reminders are rejected. The page polls for due reminders while open; reminders do not send browser or operating-system notifications while the page is closed.
 
 ## Heartbeat
 
 Minerva can run a scheduled assistant check using instructions in `heartbeat.md` at the root of its data directory (`MINERVA_DATA_DIR`, or `~/MinervaOS` by default). By default, Minerva checks once at the top of each UTC hour. A missing or empty file is ignored. If an AI request is active at the scheduled tick, that tick is skipped rather than queued; the next check is at the following hour. Set `MINERVA_HEARTBEAT_ENABLED=false` to disable it, or use `MINERVA_HEARTBEAT_CRON` and `MINERVA_HEARTBEAT_ZONE` to change the schedule. A running heartbeat holds the exclusive AI activity slot; new AI requests receive a busy message and can be retried after it finishes. Heartbeat instructions and session history are backed up with other local user data.
+
+Application logs in the data directory's `logs` folder record heartbeat run IDs, tool names, whether calls returned or raised exceptions, and bounded tool results and assistant responses. **These logs can contain sensitive information**; restrict access to them. Tool inputs and direct memory-tool results are omitted, but other tool results or assistant responses may contain memory contents or secrets. A returned result is not necessarily a successful action. Memory tools and managed interests also log successful additions, updates, deletions and renames. Generic filesystem and shell operations can change memory files without producing memory-change events. Logs are not included in local backups.
+
+## Tool search
+
+Tool search is experimental and disabled by default. Set `MINERVA_TOOL_SEARCH_ENABLED=true` in the environment (or the Compose `.env` file) and restart Minerva to let the assistant and heartbeat discover tools on demand using a local keyword index. This can reduce the tool definitions sent to the model, but requires the configured model to search for and call tools reliably; keyword searches can also miss relevant tools. If tools stop working, set it to `false` and restart to restore the normal tool-calling path. Minerva does not automatically retry failed tool calls because a tool may already have performed an action.
+## Discord
+
+Discord is optional. To connect Minerva to a server:
+
+1. Create an application and bot in the [Discord Developer Portal](https://discord.com/developers/applications). On its Bot page, enable the privileged **Message Content Intent** and obtain the bot token.
+2. Use the application's OAuth2 URL generator to invite the bot to your server with the `bot` scope and permission to view channels, read message history and send messages in the channels you want it to use.
+3. Set `DISCORD_TOKEN` in your Compose `.env` file and apply the configuration with `docker compose up -d core` (add `-f prod-compose.yaml` after `compose` for production). Keep the token secret; never commit it or share it. Reset it in the Developer Portal if exposed.
+
+Leave `DISCORD_TOKEN` unset or blank to disable Discord. When enabled, Minerva responds to non-bot messages in channels it can access, not just messages that mention it. Limit the bot's channel access accordingly.
+
+## Journiv
+
+To connect the optional Journiv integration:
+
+1. Start a Journiv server reachable from Minerva. For a new account, the server must allow password registration. Journiv may make its first account an administrator; provision your own administrator first if that is not intended. For an existing account, use its existing password.
+2. Replace the three empty Journiv entries in the `core` service's `environment` section of `compose.yaml` or `prod-compose.yaml` with the mappings below. Set `JOURNIV_URL` to the server's HTTP(S) base URL and `JOURNIV_EMAIL` and `JOURNIV_PASSWORD` to dedicated account credentials in `.env`. The supplied empty Compose values override `.env`, so setting the values only in `.env` without changing the mappings is not sufficient.
+3. Apply the configuration with `docker compose up -d core` (add `-f prod-compose.yaml` after `compose` for production) and check the `core` logs for connection or authentication errors after activity is recorded. Leave `JOURNIV_URL` unset or empty to disable the integration.
+
+```yaml
+      JOURNIV_URL: ${JOURNIV_URL:-}
+      JOURNIV_EMAIL: ${JOURNIV_EMAIL:-}
+      JOURNIV_PASSWORD: ${JOURNIV_PASSWORD:-}
+```
+
+From a Compose container, use a hostname reachable from that container; `localhost` refers to the Minerva container itself. Use HTTPS when traffic crosses an untrusted network and keep credentials private.
+
+Minerva creates or reuses its own journal and records concise AI-generated summaries of completed text, image and audio interactions and heartbeat outcomes. Image and audio files are not sent to Journiv. A daily entry is created when there is activity, and the assistant can read prior entries. `JOURNIV_TIME_ZONE` selects the IANA time zone for daily entries; it defaults to `MINERVA_TIME_ZONE`, or UTC. `JOURNIV_RETRY_INTERVAL` sets the retry interval in milliseconds (default 60000).
+
+Pending activity is stored in PostgreSQL for retry after a restart or an outage. **Until summarisation succeeds, this queue contains the original request and response text**, including audio transcripts; after summarisation only the summary remains pending. Both database backups and the Journiv server may therefore contain sensitive information. Keep the database, backups, `.env`, and Journiv account private. The summariser uses the configured AI model and may omit or misrepresent details. Failures are logged and retried; database write failures are logged but cannot be queued.
+
+Each delivered summary includes a visible event marker used to recognise retries. Do not remove these markers while activity may still be pending. Updates preserve existing entry content and reject conflicting edits, but Journiv does not expose an atomic daily-entry upsert: run only one Minerva instance per Journiv account to avoid concurrent duplicate entries. Avoid renaming Minerva's dated entries. If several matching journals or daily entries exist, delivery stops and logs an error for manual resolution. Changing the server URL or account leaves existing queued events blocked rather than sending them to the new account; restore the original settings to deliver them.
+
+The `ContinuousIntegration` Journiv test uses `JOURNIV_TEST_URL` when supplied and creates then deletes a dedicated test account. Point it only at a disposable server with password registration enabled; integration tests are not run locally.
+
+## Conversation logging
+
+The logging advisor records the current user message and completed assistant response at INFO level, including heartbeat requests. Logs are written to the console and to `logs` under `MINERVA_DATA_DIR` (or `~/MinervaOS` by default). These logs can contain sensitive conversation text; keep them private. Set `LOGGING_LEVEL_COM_MINERVA_ADVISORS=OFF` to disable the advisor's logs. Media attachments are not logged by the advisor; image requests and responses are also logged separately by the conversation manager.
 
 ## Local backup and restore
 
@@ -65,6 +108,8 @@ The Compose data volume is mounted at the dedicated filesystem-root directory `/
 * IO-KEY - Optional, for AdafruitIO integration
 * IO-USERNAME - Optional, for AdafruitIO integration
 * BRAVE_API_KEY - Optional, for Web searching
+* DISCORD_TOKEN - Optional, for the Discord bot
+* JOURNIV_TIME_ZONE, JOURNIV_RETRY_INTERVAL - Optional, Journiv date zone and retry interval
 
 # Related projects
 * BraincraftHMI - A simple server wrapper for Adafruit's Braincraft Hat. Minerva *will* have an integrated advisor that outputs to the Braincraft Hat's display; the HMI side will be able to send data to Minerva.
@@ -72,7 +117,7 @@ The Compose data volume is mounted at the dedicated filesystem-root directory `/
 # Raspberry PI Quickstart
 If you simply want to try this out on a Raspberry Pi 5 8/16GB(I wouldn't recommend this on anything else), you can quickly get started by doing the following:
 * Create a directory and drop the prod-compose file into it
-* Create an .env file, with the calues outline above
+* Create an .env file, with the values outline above
 * Create a folder in there called db, and in it create a file called password.txt with a password that matches what's in the .env
 * Bring up the docker compose file
 

@@ -1,13 +1,19 @@
 package com.minerva.core;
 
 import com.minerva.api.personality.InterestMemoryStore;
+import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.core.reminders.ReminderTools;
+import com.minerva.core.journiv.JournivService;
+import com.minerva.core.journiv.JournivTools;
+import com.minerva.api.personality.MediaPersonalityService;
+import com.minerva.tools.RssTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
+import net.dv8tion.jda.api.JDABuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.agent.advisors.AutoMemoryToolsAdvisor;
@@ -15,12 +21,19 @@ import org.springaicommunity.agent.tools.*;
 import org.springaicommunity.agent.utils.AgentEnvironment;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
+import org.springframework.ai.chat.client.advisor.api.MemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.ToolCallingAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
+import org.springframework.ai.tool.toolsearch.index.lucene.LuceneToolIndex;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
 import org.springframework.ai.session.compaction.SlidingWindowCompactionStrategy;
 import org.springframework.ai.session.compaction.TurnCountTrigger;
+import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -35,6 +48,8 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.stream.Stream;
 
 
 public class ConversationManager {
@@ -47,6 +62,7 @@ public class ConversationManager {
     private static String activeSystemPrompt;
     private static RestClient voiceClient;
     private static AiActivityGate activityGate;
+    private static JournivService journivService;
     private static final String HEARTBEAT_SESSION_ID = "minerva-heartbeat";
     private static final String HEARTBEAT_SYSTEM_PROMPT = """
             You are performing Minerva's scheduled idle heartbeat. Follow the local operator's
@@ -71,7 +87,12 @@ public class ConversationManager {
     /// @param skillImportService service used to load and refresh imported skills.
     /// @param dateTimeTools date/time tools exposed to the assistant.
     /// @param reminderTools reminder tools exposed to the assistant.
+    /// @param rssTools RSS tools exposed to the assistant.
+    /// @param personalityService personality image workflow exposed to the assistant.
     /// @param activityGate gate shared by foreground requests and the heartbeat.
+    /// @param journivService activity recorder for the optional Journiv integration.
+    /// @param journivTools read-only journal tools.
+    /// @param toolSearchEnabled whether to progressively discover tools.
     /// @throws IOException If an I/O error occurs while reading the prompt files.
     public static synchronized void Initialize(
             ChatClient.Builder builder,
@@ -79,9 +100,15 @@ public class ConversationManager {
             SkillImportService skillImportService,
             DateTimeTools dateTimeTools,
             ReminderTools reminderTools,
-            AiActivityGate activityGate
+            RssTools rssTools,
+            MediaPersonalityService personalityService,
+            AiActivityGate activityGate,
+            JournivService journivService,
+            JournivTools journivTools,
+            boolean toolSearchEnabled
     ) throws IOException {
         ConversationManager.activityGate = activityGate;
+        ConversationManager.journivService = journivService;
         baseChatClientBuilder = builder.clone();
         var pathToMemories = FileManager.getInstance().getDirectoryPath(Directory.MEMORIES);
         SessionMemoryAdvisor sessionMemoryAdvisor = SessionMemoryAdvisor.builder(sessionService)
@@ -120,6 +147,11 @@ public class ConversationManager {
                 heartbeatShortTermMemoryAdvisor,
                 new com.minerva.advisors.LoggerAdvisor()
         };
+        activeAdvisors = withToolSearch(activeAdvisors, toolSearchEnabled);
+        heartbeatAdvisors = withToolSearch(heartbeatAdvisors, toolSearchEnabled);
+        if (toolSearchEnabled) {
+            logger.info("Tool search is enabled for assistant and heartbeat conversations.");
+        }
         activeTools = new Object[] {
                 ShellTools.builder().build(),
                 FileSystemTools.builder().build(),
@@ -129,8 +161,14 @@ public class ConversationManager {
                 todoTool,
                 new SkillImportTools(skillImportService),
                 dateTimeTools,
-                reminderTools
+                reminderTools,
+                rssTools,
+                personalityService
         };
+        if (journivService.enabled()) {
+            activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
+            activeTools[activeTools.length - 1] = journivTools;
+        }
         if (System.getenv("BRAVE_API_KEY") != null) {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
             activeTools[activeTools.length - 1] =
@@ -138,6 +176,30 @@ public class ConversationManager {
         }
         skillImportService.setSkillChangeListener(ConversationManager::refreshSkills);
         refreshSkills();
+    }
+
+    /**
+     * Adds a session-scoped search advisor without changing the default tool-calling path when disabled.
+     *
+     * @param advisors existing client advisors
+     * @param enabled whether tool search is enabled
+     * @return the advisors to install on the client
+     */
+    static Advisor[] withToolSearch(Advisor[] advisors, boolean enabled) {
+        if (!enabled) {
+            return advisors;
+        }
+        boolean downstreamMemory = Arrays.stream(advisors)
+                .anyMatch(advisor -> advisor instanceof MemoryAdvisor
+                        && advisor.getOrder() > ToolCallingAdvisor.DEFAULT_ORDER);
+        var toolSearch = ToolSearchToolCallingAdvisor.builder()
+                .toolIndex(new LuceneToolIndex())
+                .sessionIdKeyName(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY)
+                .conversationHistoryEnabled(!downstreamMemory)
+                .build();
+        Advisor[] result = Arrays.copyOf(advisors, advisors.length + 1);
+        result[advisors.length] = toolSearch;
+        return result;
     }
 
     private static synchronized void refreshSkills() throws IOException {
@@ -159,14 +221,36 @@ public class ConversationManager {
     }
 
     private static ChatClient buildChatClient(Advisor[] advisors, Object[] tools, String pathToMemories) {
+        ToolCallback[] callbacks = loggingCallbacks(tools);
         return baseChatClientBuilder.clone()
                 .defaultAdvisors(advisors)
                 .defaultSystem(p -> p.text(activeSystemPrompt)
                         .param(AgentEnvironment.ENVIRONMENT_INFO_KEY, AgentEnvironment.info())
                         .param(AgentEnvironment.GIT_STATUS_KEY, AgentEnvironment.gitStatus())
                         .param("MEMORIES_ROOT_DIERCTORY", pathToMemories))
-                .defaultTools(tools)
+                .defaultTools((Object[]) callbacks)
                 .build();
+    }
+
+    /**
+     * Wraps annotated tools, callbacks and providers for foreground and heartbeat activity logging.
+     *
+     * @param tools assistant tools, callbacks or callback providers
+     * @return callbacks with their definitions and metadata preserved
+     */
+    static ToolCallback[] loggingCallbacks(Object[] tools) {
+        return Arrays.stream(tools)
+                .flatMap(tool -> {
+                    if (tool instanceof ToolCallback callback) {
+                        return Stream.of(callback);
+                    }
+                    if (tool instanceof ToolCallbackProvider provider) {
+                        return Arrays.stream(provider.getToolCallbacks());
+                    }
+                    return Arrays.stream(ToolCallbacks.from(tool));
+                })
+                .map(ActivityLoggingToolCallback::new)
+                .toArray(ToolCallback[]::new);
     }
 
     /**
@@ -198,13 +282,15 @@ public class ConversationManager {
             return AiBusyException.USER_MESSAGE;
         }
         try (var ignored = lease.get()) {
-            return aiChatClient
+            String response = aiChatClient
                     .prompt()
                     .system(system -> system.text(currentPrompt()))
                     .user(message)
                     .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, "session-abc"))
                     .call()
                     .content();
+            journivService.record("text", message, response);
+            return response;
         }
     }
 
@@ -214,14 +300,16 @@ public class ConversationManager {
      * <p>The caller must hold the exclusive idle slot from {@link AiActivityGate}.</p>
      *
      * @param instructions contents of the configured heartbeat file
+     * @param run identifies and tracks this heartbeat's tool invocations
      * @return assistant response
      */
-    public static String sendHeartbeat(String instructions) {
+    public static String sendHeartbeat(String instructions, HeartbeatRun run) {
         return heartbeatChatClient
                 .prompt()
                 .system(system -> system.text(currentPrompt() + "\n\n" + HEARTBEAT_SYSTEM_PROMPT))
                 .user("Follow these recurring heartbeat instructions from the local operator:\n\n" + instructions)
                 .advisors(a -> a.param(SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY, HEARTBEAT_SESSION_ID))
+                .toolContext(Map.of(HeartbeatRun.CONTEXT_KEY, run))
                 .call()
                 .content();
     }
@@ -229,7 +317,7 @@ public class ConversationManager {
     /// <summary>
     /// Seeks an opinion on an image by sending it to the AI along with a user request.
     /// </summary>
-    /// @param pathToFile The path to the image file to analyze.
+    /// @param pathToFile The path to the image file to analyse.
     /// @param request The user request or question regarding the image.
     /// @return The AI's response to the image and request.
     /// @throws MalformedURLException If the path to the image file is malformed.
@@ -240,7 +328,7 @@ public class ConversationManager {
     /**
      * Seeks an opinion on an image using the configured chat model and its actual MIME type.
      *
-     * @param pathToFile path to the image file to analyze
+     * @param pathToFile path to the image file to analyse
      * @param request user request or question about the image
      * @param imageMimeType MIME type used to attach the image
      * @return the model's response to the image and request
@@ -262,6 +350,7 @@ public class ConversationManager {
                     .call()
                     .content();
             logger.info("Responding to image message with: {}", response);
+            journivService.record("image", finalRequest, response);
             return response;
         }
     }
@@ -302,7 +391,11 @@ public class ConversationManager {
             assert responseAudio != null;
             var pathToAudio = FileManager.getInstance().UploadFile(responseAudio.getOriginalFilename(), responseAudio);
             //Return the audio
-            return FileManager.getInstance().GetFile(pathToAudio);
+            File result = FileManager.getInstance().GetFile(pathToAudio);
+            if (convertedText != null) {
+                journivService.record("audio", convertedText, response);
+            }
+            return result;
         }
     }
 

@@ -27,7 +27,7 @@ class MediaDocumentExtractorTests {
                 <html><head><base href="https://media.example.test/gallery/"></head>
                 <body><h1>Art and gardens</h1>
                 <span class="tag">  Botanical   art </span><span class="tag">botanical art</span>
-                <img src="https://images.example.test/photo.png">
+                <img src="https://images.example.test/photo.png" alt=" A quiet   botanical garden ">
                 <video poster="cover.gif"><source src="clip.webm" type="video/webm"></video>
                 <audio><source src="sound.ogg"></audio>
                 <img src="javascript:alert(1)"><script>ignore me</script></body></html>
@@ -39,11 +39,38 @@ class MediaDocumentExtractorTests {
         assertTrue(extraction.text().contains("Art and gardens"));
         assertFalse(extraction.text().contains("ignore me"));
         assertEquals(java.util.List.of("Botanical art"), extraction.tags());
+        assertEquals(java.util.List.of("A quiet botanical garden"), extraction.imageAltTexts());
         assertEquals(java.util.List.of(
                 URI.create("https://images.example.test/photo.png"),
                 URI.create("https://media.example.test/gallery/cover.gif"),
                 URI.create("https://media.example.test/gallery/clip.webm")
         ), extraction.mediaUrls());
+    }
+
+    @Test
+    void extractsAltTextEvenWhenAnImageHasNoFetchableSource() throws Exception {
+        var upload = new MockMultipartFile("file", "alt-only.html", "text/html",
+                "<img alt='A landscape'><img alt='  '><img>".getBytes());
+
+        var extraction = extractor.extract(upload);
+
+        assertEquals(java.util.List.of("A landscape"), extraction.imageAltTexts());
+        assertTrue(extraction.mediaUrls().isEmpty());
+    }
+
+    @Test
+    void acceptsHtmlDocumentsLargerThanTenMegabytes() throws Exception {
+        byte[] padding = new byte[10 * 1024 * 1024 + 1];
+        java.util.Arrays.fill(padding, (byte) ' ');
+        byte[] html = ("<p>Garden</p>").getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] content = new byte[html.length + padding.length];
+        System.arraycopy(html, 0, content, 0, html.length);
+        System.arraycopy(padding, 0, content, html.length, padding.length);
+        var upload = new MockMultipartFile("file", "large.html", "text/html", content);
+
+        var extraction = extractor.extract(upload);
+
+        assertTrue(extraction.text().contains("Garden"));
     }
 
     @Test

@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("Unit")
@@ -39,7 +40,7 @@ class RemoteMediaFetcherTests {
     }
 
     @Test
-    void fetchesSupportedPublicImageContentWithinTheConfiguredLimit() throws Exception {
+    void fetchesSupportedPublicImageContent() throws Exception {
         var client = mock(CloseableHttpClient.class);
         var response = imageResponse(200, new byte[] {1, 2, 3}, "image/png");
         when(client.execute(any(org.apache.hc.core5.http.ClassicHttpRequest.class))).thenReturn(response);
@@ -50,6 +51,25 @@ class RemoteMediaFetcherTests {
         assertEquals(1, media.size());
         assertEquals("image/png", media.getFirst().contentType());
         assertArrayEquals(new byte[] {1, 2, 3}, media.getFirst().content());
+    }
+
+    @Test
+    void acceptsFiftyMediaReferencesAndRejectsMoreBeforeFetching() throws Exception {
+        var client = mock(CloseableHttpClient.class);
+        when(client.execute(any(org.apache.hc.core5.http.ClassicHttpRequest.class)))
+                .thenAnswer(ignored -> imageResponse(200, new byte[] {1}, "image/png"));
+        var fetcher = new RemoteMediaFetcher(client, RemoteMediaFetcherTests::publicAddress);
+        List<URI> references = java.util.stream.IntStream.range(0, 50)
+                .mapToObj(index -> URI.create("https://media.example.test/" + index + ".png"))
+                .toList();
+
+        assertEquals(50, fetcher.fetch(references).size());
+        verify(client, org.mockito.Mockito.times(50))
+                .execute(any(org.apache.hc.core5.http.ClassicHttpRequest.class));
+        assertThrows(IllegalArgumentException.class, () -> fetcher.fetch(
+                java.util.stream.IntStream.range(0, 51)
+                        .mapToObj(index -> URI.create("https://media.example.test/" + index + ".png"))
+                        .toList()));
     }
 
     @Test
@@ -81,7 +101,7 @@ class RemoteMediaFetcherTests {
         return response;
     }
 
-    private static InetAddress[] publicAddress(String host) throws IOException {
+    static InetAddress[] publicAddress(String host) throws IOException {
         return new InetAddress[] {InetAddress.getByAddress(new byte[] {8, 8, 8, 8})};
     }
 }

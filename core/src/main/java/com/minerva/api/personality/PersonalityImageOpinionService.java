@@ -12,13 +12,13 @@ import java.nio.file.Files;
 @Component
 public class PersonalityImageOpinionService {
     /**
-     * Analyzes an image using the shared conversation model and removes its temporary file afterward.
+     * Analyses an image using the shared conversation model and removes its temporary file afterward.
      *
      * @param image image bytes and content type
      * @param request the user's question or comment about the image
      * @return the model's description or opinion
      * @throws IllegalArgumentException if the image format is unsupported
-     * @throws IOException if the image cannot be staged or analyzed
+     * @throws IOException if the image cannot be staged or analysed
      */
     public String analyze(RemoteMediaFetcher.MediaAsset image, String request) throws IOException {
         String extension = switch (image.contentType()) {

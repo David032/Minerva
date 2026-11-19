@@ -2,6 +2,9 @@ package com.minerva.api.personality;
 
 import com.minerva.core.AiBusyException;
 import com.minerva.core.personality.PersonalityPromptStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,7 +17,8 @@ import java.util.List;
  */
 @Service
 public class MediaPersonalityService {
-    private static final long MAX_IMAGE_UPLOAD_BYTES = MediaDocumentExtractor.MAX_UPLOAD_BYTES;
+    private static final int MAX_BATCH_FILES = 50;
+    private static final Logger logger = LoggerFactory.getLogger(MediaPersonalityService.class);
     private static final String DEFAULT_IMAGE_REQUEST = "What is this image about?";
     private final MediaDocumentExtractor extractor;
     private final RemoteMediaFetcher mediaFetcher;
@@ -54,19 +58,35 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Extracts and analyzes a PDF or HTML upload, then saves its resulting preferences and tags.
+     * Extracts and analyses a PDF or HTML upload, then saves its resulting preferences and tags.
      *
      * @param file the PDF or HTML document to process
      * @param guidance optional explicit preference guidance from the user
      * @return counts and the resulting personality prompt
-     * @throws IllegalArgumentException if the upload is empty, oversized, or unsupported
+     * @throws IllegalArgumentException if the upload is empty or unsupported
      * @throws IOException if extraction, media retrieval, analysis, or persistence fails
      */
     public synchronized SubmissionResult process(MultipartFile file, String guidance) throws IOException {
         MediaDocumentExtractor.Extraction extraction = extractor.extract(file);
         List<RemoteMediaFetcher.MediaAsset> fetchedMedia = mediaFetcher.fetch(extraction.mediaUrls());
-        List<RemoteMediaFetcher.MediaAsset> media = mediaPreprocessor.prepare(fetchedMedia);
-        return analyzeAndSave(extraction, media, guidance, extraction.mediaUrls().size());
+        List<List<RemoteMediaFetcher.MediaAsset>> mediaBatches = mediaPreprocessor.prepareBatches(fetchedMedia);
+        return analyzeAndSave(extraction, mediaBatches, guidance, extraction.mediaUrls().size());
+    }
+
+    /**
+     * Analyses fetched article text with the user's comment as explicit preference guidance.
+     *
+     * @param article fetched and parsed article content
+     * @param comment the user's explicit preference guidance
+     * @return counts and the resulting personality prompt
+     * @throws IOException if analysis or persistence fails
+     */
+    public synchronized SubmissionResult processArticle(RemoteArticleFetcher.Article article, String comment)
+            throws IOException {
+        String articleText = (article.title().isBlank() ? "" : "Title: " + article.title() + "\n")
+                + "Source: " + article.source() + "\n" + article.text();
+        var extraction = new MediaDocumentExtractor.Extraction(articleText, List.of(), List.of(), List.of());
+        return analyzeAndSave(extraction, List.of(), comment, 0);
     }
 
     /**
@@ -80,6 +100,7 @@ public class MediaPersonalityService {
      */
     public synchronized BatchSubmissionResult processHtmlBatch(List<MultipartFile> files, String guidance)
             throws IOException {
+        validateBatchFileCount(files);
         if (files == null || files.stream().noneMatch(file -> file != null && !file.isEmpty())) {
             throw new IllegalArgumentException("Choose at least one HTML file.");
         }
@@ -110,7 +131,87 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Analyzes an uploaded image or image URL and uses the resulting description as preference context.
+     * Processes uploaded images independently, preserving the filename and error for each failure.
+     *
+     * @param files images selected for batch processing
+     * @param comment optional image-analysis comment applied to each image
+     * @return aggregate counts, per-file failures, and the latest personality prompt
+     * @throws IllegalArgumentException if no non-empty images were selected
+     * @throws IOException if the latest prompt cannot be loaded after processing
+     */
+    public synchronized BatchSubmissionResult processImageBatch(List<MultipartFile> files, String comment)
+            throws IOException {
+        validateBatchFileCount(files);
+        if (files == null || files.stream().noneMatch(file -> file != null && !file.isEmpty())) {
+            throw new IllegalArgumentException("Choose at least one image.");
+        }
+
+        int successfulFileCount = 0;
+        int savedTagCount = 0;
+        int analyzedMediaCount = 0;
+        List<FileFailure> failures = new java.util.ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            String filename = displayFilename(file.getOriginalFilename());
+            try {
+                SubmissionResult result = processImage(file, null, comment);
+                successfulFileCount++;
+                savedTagCount += result.savedTagCount();
+                analyzedMediaCount += result.analyzedMediaCount();
+            } catch (IllegalArgumentException | IOException e) {
+                failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
+            }
+        }
+        return new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load());
+    }
+
+    /**
+     * Processes the HTML pages and images in a validated ZIP independently.
+     *
+     * @param archive uploaded ZIP containing HTML pages and images
+     * @param guidance explicit preference guidance applied to every file
+     * @return aggregate counts, per-file failures, and the latest personality prompt
+     * @throws IOException if the archive or saved prompt cannot be read
+     * @throws IllegalArgumentException if the archive is invalid or exceeds its limits
+     */
+    public synchronized BatchSubmissionResult processZip(MultipartFile archive, String guidance) throws IOException {
+        try (var zip = PersonalityZipArchive.open(archive)) {
+            return processZipFiles(zip.files(), guidance);
+        }
+    }
+
+    private BatchSubmissionResult processZipFiles(List<MultipartFile> files, String guidance) throws IOException {
+        int successfulFileCount = 0;
+        int savedTagCount = 0;
+        int analyzedMediaCount = 0;
+        List<FileFailure> failures = new java.util.ArrayList<>();
+        for (MultipartFile file : files) {
+            String filename = displayFilename(file.getOriginalFilename());
+            try {
+                SubmissionResult result;
+                if (isHtmlFilename(filename)) {
+                    result = process(file, guidance);
+                } else if (isImageFilename(filename)) {
+                    result = processImage(file, null, guidance);
+                } else {
+                    throw new IllegalArgumentException("Only HTML files and JPEG, PNG, GIF, or WebP images are supported.");
+                }
+                successfulFileCount++;
+                savedTagCount += result.savedTagCount();
+                analyzedMediaCount += result.analyzedMediaCount();
+            } catch (IllegalArgumentException | IOException e) {
+                failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
+            }
+        }
+        return new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load());
+    }
+
+    /**
+     * Analyses an uploaded image or image URL and uses the resulting description as preference context.
      *
      * @param imageFile an optional uploaded image
      * @param imageUrl an optional remote image URL
@@ -160,14 +261,25 @@ public class MediaPersonalityService {
         if (description == null || description.isBlank()) {
             throw new IOException("Image analysis returned no description; the saved personality prompt was not changed.");
         }
-        var extraction = new MediaDocumentExtractor.Extraction("Image analysis:\n" + description, List.of(), List.of());
+        var extraction = new MediaDocumentExtractor.Extraction(
+                "Image analysis:\n" + description, List.of(), List.of(), List.of());
         return analyzeAndSave(extraction, List.of(), effectiveComment, 1);
     }
 
+    /**
+     * Analyses a public image URL and applies the result to the saved personality prompt.
+     *
+     * @param imageUrl public HTTP(S) image URL
+     * @param comment optional guidance about the image
+     * @return counts and the resulting personality prompt
+     * @throws IOException if image retrieval or personality analysis fails
+     */
+    @Tool(description = "Analyze a public image URL and conservatively update Minerva's saved personality preferences")
+    public synchronized SubmissionResult processImageUrl(String imageUrl, String comment) throws IOException {
+        return processImage(null, imageUrl, comment);
+    }
+
     private RemoteMediaFetcher.MediaAsset uploadedImage(MultipartFile file) throws IOException {
-        if (file.getSize() > MAX_IMAGE_UPLOAD_BYTES) {
-            throw new IllegalArgumentException("The uploaded image exceeds the 10 MB limit.");
-        }
         byte[] content = file.getBytes();
         String contentType = imageContentType(content);
         return new RemoteMediaFetcher.MediaAsset(URI.create("upload://image"), contentType, content);
@@ -198,14 +310,19 @@ public class MediaPersonalityService {
 
     private SubmissionResult analyzeAndSave(
             MediaDocumentExtractor.Extraction extraction,
-            List<RemoteMediaFetcher.MediaAsset> media,
+            List<List<RemoteMediaFetcher.MediaAsset>> mediaBatches,
             String guidance,
             int analyzedMediaCount
     ) throws IOException {
         String currentPrompt = promptStore.load();
-        String updatedPrompt;
+        String updatedPrompt = currentPrompt;
         try {
-            updatedPrompt = analyzer.analyze(extraction, media, currentPrompt, guidance);
+            List<List<RemoteMediaFetcher.MediaAsset>> batches = mediaBatches.isEmpty()
+                    ? List.of(List.of())
+                    : mediaBatches;
+            for (List<RemoteMediaFetcher.MediaAsset> media : batches) {
+                updatedPrompt = analyzer.analyze(extraction, media, updatedPrompt, guidance);
+            }
         } catch (AiBusyException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -214,9 +331,10 @@ public class MediaPersonalityService {
 
         byte[] oldPrompt = promptStore.snapshot();
         byte[] oldMemories = memoryStore.snapshot();
+        List<String> addedTags;
         try {
-            memoryStore.addAll(extraction.tags());
             promptStore.save(updatedPrompt);
+            addedTags = memoryStore.addAll(extraction.tags());
         } catch (IOException | RuntimeException e) {
             try {
                 promptStore.restore(oldPrompt);
@@ -226,7 +344,46 @@ public class MediaPersonalityService {
             }
             throw e;
         }
-        return new SubmissionResult(extraction.tags().size(), analyzedMediaCount, updatedPrompt);
+        for (String tag : addedTags) {
+            logger.info("Added extracted interest at neutral score 3/5: {}", sanitiseLogValue(tag));
+        }
+        String additions = promptAdditions(currentPrompt, updatedPrompt);
+        if (!additions.isBlank()) {
+            logger.info("Added to personality prompt: {}", sanitiseLogValue(additions));
+        }
+        return new SubmissionResult(addedTags.size(), analyzedMediaCount, updatedPrompt);
+    }
+
+    private static void validateBatchFileCount(List<MultipartFile> files) {
+        long uploadedFileCount = files == null ? 0
+                : files.stream().filter(file -> file != null
+                        && (!file.isEmpty() || file.getOriginalFilename() != null
+                        && !file.getOriginalFilename().isBlank())).count();
+        if (uploadedFileCount > MAX_BATCH_FILES) {
+            throw new IllegalArgumentException("A maximum of 50 files can be uploaded in one go.");
+        }
+    }
+
+    static String promptAdditions(String currentPrompt, String updatedPrompt) {
+        java.util.Set<String> existingSentences = new java.util.HashSet<>();
+        if (currentPrompt != null) {
+            for (String sentence : currentPrompt.split("(?<=[.!?])\\s+")) {
+                if (!sentence.isBlank()) {
+                    existingSentences.add(sentence.trim());
+                }
+            }
+        }
+        if (updatedPrompt == null) {
+            return "";
+        }
+        return java.util.Arrays.stream(updatedPrompt.split("(?<=[.!?])\\s+"))
+                .map(String::trim)
+                .filter(sentence -> !sentence.isEmpty() && !existingSentences.contains(sentence))
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    private static String sanitiseLogValue(String value) {
+        return value.replaceAll("[\\p{Cntrl}]+", " ").replaceAll("\\s+", " ").trim();
     }
 
     /**
@@ -274,7 +431,7 @@ public class MediaPersonalityService {
      *
      * @param keyword the user's keyword or tag
      * @param score an integer from 1 (strongly negative) to 5 (strongly positive)
-     * @return the normalized saved interest
+     * @return the normalised saved interest
      * @throws IllegalArgumentException if the keyword or score is invalid
      * @throws IOException if the interest cannot be persisted
      */
@@ -291,6 +448,12 @@ public class MediaPersonalityService {
         return lower.endsWith(".html") || lower.endsWith(".htm");
     }
 
+    private static boolean isImageFilename(String filename) {
+        String lower = filename.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png")
+                || lower.endsWith(".gif") || lower.endsWith(".webp");
+    }
+
     private static String displayFilename(String filename) {
         if (filename == null || filename.isBlank()) {
             return "Unnamed HTML file";
@@ -299,7 +462,7 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Per-file processing error returned from an HTML batch.
+     * Per-file processing error returned from an upload batch.
      *
      * @param filename the selected file's name
      * @param message the validation or processing failure
@@ -308,11 +471,11 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Aggregate result of an HTML batch, including failures that did not prevent other files from processing.
+     * Aggregate result of an upload batch, including failures that did not prevent other files from processing.
      *
      * @param successfulFileCount number of files processed successfully
      * @param savedTagCount number of inferred tags saved across successful files
-     * @param analyzedMediaCount number of media items analyzed across successful files
+     * @param analyzedMediaCount number of media items analysed across successful files
      * @param failures per-file failures, including filenames
      * @param personalityPrompt the latest saved personality prompt
      */
@@ -328,7 +491,7 @@ public class MediaPersonalityService {
          *
          * @param successfulFileCount number of files processed successfully
          * @param savedTagCount number of inferred tags persisted
-         * @param analyzedMediaCount number of media items analyzed
+         * @param analyzedMediaCount number of media items analysed
          * @param failures per-file failures
          * @param personalityPrompt the latest saved personality prompt
          */
@@ -338,10 +501,10 @@ public class MediaPersonalityService {
     }
 
     /**
-     * Result of analyzing one document or image submission.
+     * Result of analysing one document or image submission.
      *
      * @param savedTagCount number of inferred tags persisted
-     * @param analyzedMediaCount number of media items analyzed
+     * @param analyzedMediaCount number of media items analysed
      * @param personalityPrompt the resulting saved personality prompt
      */
     public record SubmissionResult(int savedTagCount, int analyzedMediaCount, String personalityPrompt) {

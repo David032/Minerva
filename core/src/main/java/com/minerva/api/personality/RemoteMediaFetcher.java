@@ -29,7 +29,7 @@ import java.util.Set;
  */
 @Component
 public class RemoteMediaFetcher {
-    private static final int MAX_MEDIA_COUNT = 8;
+    private static final int MAX_MEDIA_COUNT = 50;
     private static final int MAX_MEDIA_BYTES = 5 * 1024 * 1024;
     private static final int MAX_TOTAL_MEDIA_BYTES = 20 * 1024 * 1024;
     private static final Set<String> SUPPORTED_TYPES = Set.of(
@@ -57,7 +57,7 @@ public class RemoteMediaFetcher {
         this.addressResolver = addressResolver;
     }
 
-    private static CloseableHttpClient createHttpClient() {
+    static CloseableHttpClient createHttpClient() {
         DnsResolver resolver = new DnsResolver() {
             @Override
             public InetAddress[] resolve(String host) throws UnknownHostException {
@@ -105,7 +105,7 @@ public class RemoteMediaFetcher {
      */
     public List<MediaAsset> fetch(List<URI> references) throws IOException {
         if (references.size() > MAX_MEDIA_COUNT) {
-            throw new IllegalArgumentException("The HTML file references more than 8 media items.");
+            throw new IllegalArgumentException("The HTML file references more than 50 media items.");
         }
         List<MediaAsset> assets = new ArrayList<>();
         long totalBytes = 0;
@@ -162,7 +162,7 @@ public class RemoteMediaFetcher {
         validateRemoteUri(uri, RemoteMediaFetcher::resolvePublicAddresses);
     }
 
-    private static void validateRemoteUri(URI uri, AddressResolver resolver) throws IOException {
+    static void validateRemoteUri(URI uri, AddressResolver resolver) throws IOException {
         if (uri == null || (!"http".equalsIgnoreCase(uri.getScheme()) && !"https".equalsIgnoreCase(uri.getScheme()))
                 || uri.getHost() == null || uri.getUserInfo() != null
                 || (uri.getPort() != -1 && uri.getPort() != 80 && uri.getPort() != 443)) {
@@ -183,7 +183,7 @@ public class RemoteMediaFetcher {
         }
     }
 
-    private static InetAddress[] resolvePublicAddresses(String host) throws IOException {
+    static InetAddress[] resolvePublicAddresses(String host) throws IOException {
         InetAddress[] addresses;
         try {
             addresses = InetAddress.getAllByName(host);
@@ -201,7 +201,7 @@ public class RemoteMediaFetcher {
         return addresses;
     }
 
-    private static boolean isPublicAddress(InetAddress address) {
+    static boolean isPublicAddress(InetAddress address) {
         if (address.isAnyLocalAddress() || address.isLoopbackAddress() || address.isLinkLocalAddress()
                 || address.isSiteLocalAddress() || address.isMulticastAddress()) {
             return false;
@@ -234,7 +234,7 @@ public class RemoteMediaFetcher {
     }
 
     /**
-     * Fetched media bytes and the metadata needed to pass them to an analyzer.
+     * Fetched media bytes and the metadata needed to pass them to an analyser.
      *
      * @param source original media URI
      * @param contentType validated media content type

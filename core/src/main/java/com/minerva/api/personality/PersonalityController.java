@@ -13,19 +13,22 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Renders the personality customization pages and handles their form submissions.
+ * Renders the personality customisation pages and handles their form submissions.
  */
 @Controller
 public class PersonalityController {
     private final MediaPersonalityService service;
+    private final RemoteArticleFetcher articleFetcher;
 
     /**
      * Creates the controller backed by the personality workflow service.
      *
      * @param service performs media analysis and persists personality preferences
+     * @param articleFetcher retrieves and extracts public HTML articles
      */
-    public PersonalityController(MediaPersonalityService service) {
+    public PersonalityController(MediaPersonalityService service, RemoteArticleFetcher articleFetcher) {
         this.service = service;
+        this.articleFetcher = articleFetcher;
     }
 
     /**
@@ -42,13 +45,17 @@ public class PersonalityController {
     }
 
     /**
-     * Processes a single document/image submission or a batch of HTML documents.
+     * Processes an article, single document or image, batch, or ZIP submission.
      *
      * @param file optional single PDF, HTML, or image upload
      * @param htmlFiles optional batch of HTML uploads
+     * @param imageFiles optional batch of image uploads
+     * @param zipFile optional ZIP of HTML pages and images
      * @param imageUrl optional image URL
      * @param comment optional image-analysis comment
      * @param guidance optional PDF or HTML preference guidance
+     * @param articleUrl optional public article URL
+     * @param articleComment optional preference guidance about the article
      * @param model view model for the upload result
      * @return the personality template with success or failure feedback
      * @throws IOException if the saved prompt cannot be loaded
@@ -57,19 +64,62 @@ public class PersonalityController {
     public String upload(
             @RequestParam(required = false) MultipartFile file,
             @RequestParam(required = false) List<MultipartFile> htmlFiles,
+            @RequestParam(required = false) List<MultipartFile> imageFiles,
+            @RequestParam(required = false) MultipartFile zipFile,
             @RequestParam(required = false) String imageUrl,
             @RequestParam(defaultValue = "") String comment,
             @RequestParam(defaultValue = "") String guidance,
+            @RequestParam(required = false) String articleUrl,
+            @RequestParam(defaultValue = "") String articleComment,
             Model model
     ) throws IOException {
         try {
             if (guidance.length() > 2_000 || comment.length() > 2_000) {
                 throw new IllegalArgumentException("Guidance must be 2,000 characters or fewer.");
             }
+            if (articleComment.length() > 2_000) {
+                throw new IllegalArgumentException("Article comments must be 2,000 characters or fewer.");
+            }
             if (imageUrl != null && imageUrl.length() > 2_048) {
                 throw new IllegalArgumentException("Image URLs must be 2,048 characters or fewer.");
             }
+            if (articleUrl != null && articleUrl.length() > 2_048) {
+                throw new IllegalArgumentException("Article URLs must be 2,048 characters or fewer.");
+            }
             boolean hasHtmlBatch = htmlFiles != null && !htmlFiles.isEmpty();
+            boolean hasImageBatch = imageFiles != null && !imageFiles.isEmpty();
+            boolean hasArticleUrl = articleUrl != null && !articleUrl.isBlank();
+            boolean hasZip = zipFile != null;
+            if (hasZip) {
+                if (hasHtmlBatch || hasImageBatch || hasArticleUrl || file != null && !file.isEmpty()
+                        || imageUrl != null && !imageUrl.isBlank()) {
+                    throw new IllegalArgumentException("Submit a ZIP separately from other files or URLs.");
+                }
+                var result = service.processZip(zipFile, guidance);
+                model.addAttribute("personalityPrompt", result.personalityPrompt());
+                if (result.successfulFileCount() > 0) {
+                    model.addAttribute("success", "Processed " + result.successfulFileCount()
+                            + " ZIP file(s). Saved " + result.savedTagCount()
+                            + " interest tags and analysed " + result.analyzedMediaCount() + " media item(s).");
+                }
+                if (!result.failures().isEmpty()) {
+                    model.addAttribute("error", formatBatchFailures(result.failures()));
+                }
+                return "personality";
+            }
+            if (hasHtmlBatch && hasImageBatch) {
+                throw new IllegalArgumentException("Submit either an HTML batch or an image batch, not both.");
+            }
+            if (hasArticleUrl) {
+                if (hasHtmlBatch || hasImageBatch || file != null && !file.isEmpty()
+                        || imageUrl != null && !imageUrl.isBlank()) {
+                    throw new IllegalArgumentException("Submit an article URL separately from files or image URLs.");
+                }
+                var result = service.processArticle(articleFetcher.fetch(articleUrl), articleComment);
+                model.addAttribute("success", "Article analysis complete. Personality preferences were updated.");
+                model.addAttribute("personalityPrompt", result.personalityPrompt());
+                return "personality";
+            }
             if (hasHtmlBatch) {
                 if (file != null && !file.isEmpty() || imageUrl != null && !imageUrl.isBlank()) {
                     throw new IllegalArgumentException("Submit either a single file or image URL, or an HTML batch, not both.");
@@ -79,6 +129,22 @@ public class PersonalityController {
                 if (result.successfulFileCount() > 0) {
                     model.addAttribute("success", "Processed " + result.successfulFileCount()
                             + " HTML file(s). Saved " + result.savedTagCount()
+                            + " interest tags and analyzed " + result.analyzedMediaCount() + " media item(s).");
+                }
+                if (!result.failures().isEmpty()) {
+                    model.addAttribute("error", formatBatchFailures(result.failures()));
+                }
+                return "personality";
+            }
+            if (hasImageBatch) {
+                if (file != null && !file.isEmpty() || imageUrl != null && !imageUrl.isBlank()) {
+                    throw new IllegalArgumentException("Submit either an image batch or a single file or image URL, not both.");
+                }
+                var result = service.processImageBatch(imageFiles, comment);
+                model.addAttribute("personalityPrompt", result.personalityPrompt());
+                if (result.successfulFileCount() > 0) {
+                    model.addAttribute("success", "Processed " + result.successfulFileCount()
+                            + " image(s). Saved " + result.savedTagCount()
                             + " interest tags and analyzed " + result.analyzedMediaCount() + " media item(s).");
                 }
                 if (!result.failures().isEmpty()) {
@@ -147,7 +213,7 @@ public class PersonalityController {
     }
 
     private static String formatBatchFailures(List<MediaPersonalityService.FileFailure> failures) {
-        return "Some HTML files could not be processed: " + failures.stream()
+        return "Some files could not be processed: " + failures.stream()
                 .map(failure -> failure.filename() + ": " + failure.message())
                 .collect(java.util.stream.Collectors.joining("; "));
     }
@@ -197,7 +263,7 @@ public class PersonalityController {
     }
 
     /**
-     * Reports servlet-level upload size failures.
+     * Reports requests that exceed the server-configured aggregate upload size.
      *
      * @param model view model for the error and current prompt
      * @return the personality template
@@ -205,8 +271,9 @@ public class PersonalityController {
      */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public String uploadTooLarge(Model model) throws IOException {
-        model.addAttribute("error", "Uploads must be 10 MB or smaller.");
+        model.addAttribute("error", "The total upload request exceeds the server's configured size limit.");
         model.addAttribute("personalityPrompt", service.loadPrompt());
         return "personality";
     }
+
 }

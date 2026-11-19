@@ -59,6 +59,7 @@ class MediaPersonalityWorkflowIntegrationTests {
     private VideoFrameExtractor videoFrameExtractor;
     private PersonalityAnalyzer analyzer;
     private PersonalityImageOpinionService imageOpinionService;
+    private RemoteArticleFetcher articleFetcher;
     private List<java.net.URI> fetchedMedia;
     private List<RemoteMediaFetcher.MediaAsset> analyzedMedia;
     private RemoteMediaFetcher.MediaAsset imageSentForOpinion;
@@ -73,8 +74,8 @@ class MediaPersonalityWorkflowIntegrationTests {
         fetcher = mock(RemoteMediaFetcher.class);
         when(fetcher.fetch(anyList())).thenAnswer(invocation -> {
             List<java.net.URI> references = invocation.getArgument(0);
-            if (references.size() > 8) {
-                throw new IllegalArgumentException("The HTML file references more than 8 media items.");
+            if (references.size() > 50) {
+                throw new IllegalArgumentException("The HTML file references more than 50 media items.");
             }
             fetchedMedia.addAll(references);
             return references.stream()
@@ -107,6 +108,7 @@ class MediaPersonalityWorkflowIntegrationTests {
             imageSentForOpinion = invocation.getArgument(0);
             return "A description of the uploaded image.";
         });
+        articleFetcher = mock(RemoteArticleFetcher.class);
 
         var service = new MediaPersonalityService(
                 extractor,
@@ -126,9 +128,82 @@ class MediaPersonalityWorkflowIntegrationTests {
         templateEngine.setTemplateResolver(templateResolver);
         ThymeleafViewResolver viewResolver = new ThymeleafViewResolver();
         viewResolver.setTemplateEngine(templateEngine);
-        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(service))
+        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(service, articleFetcher))
                 .setViewResolvers(viewResolver)
                 .build();
+    }
+
+    @Test
+    void uploadsSevenHundredHtmlPagesInOneZip() throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("/style.css"));
+            zip.write("body { color: red; }".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+            for (int index = 0; index < 700; index++) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("pages/" + index + ".html"));
+                zip.write("<p>Gardens</p>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .file(new MockMultipartFile("zipFile", "pages.zip", "application/zip", bytes.toByteArray()))
+                        .param("guidance", "I like these"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertTrue(result.getModelAndView().getModel().get("success").toString().contains("Processed 700 ZIP file"));
+        assertFalse(result.getModelAndView().getModel().containsKey("error"));
+        assertEquals("Updated from 0 interest tags with guidance: I like these", promptStore.load());
+    }
+
+    @Test
+    void uploadsMixedZipWithGuidanceAndReportsUnsupportedEntries() throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("folder/page.html"));
+            zip.write("<span class=\"tag\">Gardens</span>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry("folder/image.png"));
+            zip.write(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry("folder/notes.txt"));
+            zip.write(new byte[] {1});
+            zip.closeEntry();
+        }
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .file(new MockMultipartFile("zipFile", "pages.zip", "application/zip", bytes.toByteArray()))
+                        .param("guidance", "I like these"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("personality"))
+                .andReturn();
+
+        assertTrue(result.getModelAndView().getModel().get("success").toString().contains("Processed 2 ZIP file"));
+        assertTrue(result.getModelAndView().getModel().get("error").toString().contains("folder/notes.txt"));
+        assertEquals("Updated from 0 interest tags with guidance: I like these", promptStore.load());
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("Gardens"));
+    }
+
+    @Test
+    void updatesPersonalityFromArticleAndUserComment() throws Exception {
+        String articleUrl = "https://news.example.test/story";
+        when(articleFetcher.fetch(articleUrl)).thenReturn(new RemoteArticleFetcher.Article(
+                java.net.URI.create(articleUrl), "A thoughtful story", "The article discusses quiet gardens."));
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .param("articleUrl", articleUrl)
+                        .param("articleComment", "I enjoy its calm perspective."))
+                .andExpect(status().isOk())
+                .andExpect(view().name("personality"))
+                .andReturn();
+
+        assertEquals("Updated from 0 interest tags with guidance: I enjoy its calm perspective.",
+                promptStore.load());
+        assertTrue(result.getModelAndView().getModel().get("success")
+                .toString().contains("Article analysis complete"));
+        org.mockito.Mockito.verify(articleFetcher).fetch(articleUrl);
     }
 
     @Test
@@ -152,9 +227,9 @@ class MediaPersonalityWorkflowIntegrationTests {
                     .andReturn();
 
             var resultModel = result.getModelAndView().getModel();
-            if (extracted.mediaUrls().size() > 8) {
+            if (extracted.mediaUrls().size() > 50) {
                 assertTrue(resultModel.containsKey("error"), resultModel.toString());
-                assertTrue(((String) resultModel.get("error")).contains("more than 8 media items"));
+                assertTrue(((String) resultModel.get("error")).contains("more than 50 media items"));
                 assertFalse(resultModel.containsKey("success"));
                 assertEquals(previousPrompt, promptStore.load());
                 String memoriesAfter = Files.exists(memoriesPath) ? Files.readString(memoriesPath) : null;
@@ -178,7 +253,7 @@ class MediaPersonalityWorkflowIntegrationTests {
 
         String persistedMemories = Files.readString(tempDirectory.resolve("memories.md"));
         for (String tag : expectedTags) {
-            assertTrue(persistedMemories.contains("- " + tag), "Missing persisted interest tag: " + tag);
+            assertTrue(persistedMemories.contains("- 3 | " + tag), "Missing persisted interest tag: " + tag);
         }
         assertTrue(expectedTags.size() >= 10, "The sample pages should cover multiple interest tags.");
         assertTrue(promptStore.load().contains(lastSuccessfulPageTagCount + " interest tags"));
@@ -199,7 +274,7 @@ class MediaPersonalityWorkflowIntegrationTests {
         var resultModel = result.getModelAndView().getModel();
         assertTrue(((String) resultModel.get("success")).contains("Processed 1 HTML file"));
         assertTrue(((String) resultModel.get("error")).contains("wrong.pdf"));
-        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- Watercolor"));
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- 3 | Watercolor"));
         assertTrue(promptStore.load().contains("I enjoy these pages."));
     }
 
