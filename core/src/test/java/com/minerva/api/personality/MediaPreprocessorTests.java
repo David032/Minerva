@@ -54,6 +54,20 @@ class MediaPreprocessorTests {
     }
 
     @Test
+    void preparesMoreThanOneModelBatchWithoutDroppingImages() throws Exception {
+        var assets = new ArrayList<RemoteMediaFetcher.MediaAsset>();
+        var source = URI.create("https://media.example.test/image.png");
+        for (int i = 0; i < 25; i++) {
+            assets.add(new RemoteMediaFetcher.MediaAsset(source, "image/png", new byte[] {(byte) i}));
+        }
+
+        var batches = new MediaPreprocessor(video -> List.of()).prepareBatches(assets);
+
+        assertEquals(List.of(12, 12, 1), batches.stream().map(List::size).toList());
+        assertEquals(25, batches.stream().mapToInt(List::size).sum());
+    }
+
+    @Test
     void preparesImagesLargerThanFiveMegabytes() throws Exception {
         byte[] largeImage = new byte[5 * 1024 * 1024 + 1];
         var image = new RemoteMediaFetcher.MediaAsset(

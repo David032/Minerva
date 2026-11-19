@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -80,7 +81,7 @@ class MediaPersonalityServiceTests {
         assertEquals(1, result.savedTagCount());
         assertEquals(0, result.analyzedMediaCount());
         assertEquals("I enjoy botanical art.", promptStore.load());
-        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- Botanical art"));
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- 3 | Botanical art"));
     }
 
     @Test
@@ -117,7 +118,104 @@ class MediaPersonalityServiceTests {
         assertTrue(result.failures().stream().anyMatch(failure -> failure.filename().equals("not-html.pdf")
                 && failure.message().contains("Only HTML files")));
         assertEquals("Updated from a valid page.", result.personalityPrompt());
-        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- Botanical art"));
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- 3 | Botanical art"));
+    }
+
+    @Test
+    void acceptsExactlyFiftyHtmlFilesInOneBatch() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var fetcher = mock(RemoteMediaFetcher.class);
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(fetcher.fetch(List.of())).thenReturn(List.of());
+        when(analyzer.analyze(any(), any(), any(), any())).thenReturn("Updated preferences.");
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, new InterestMemoryStore(tempDirectory.resolve("memories.md")));
+        List<org.springframework.web.multipart.MultipartFile> files = java.util.stream.IntStream.range(0, 50)
+                .mapToObj(index -> (org.springframework.web.multipart.MultipartFile) new MockMultipartFile(
+                        "htmlFiles", "page-" + index + ".html", "text/html", "<p>Example</p>".getBytes()))
+                .toList();
+
+        var result = service.processHtmlBatch(files, "");
+
+        assertEquals(50, result.successfulFileCount());
+        assertTrue(result.failures().isEmpty());
+    }
+
+    @Test
+    void rejectsBatchesContainingMoreThanFiftyNonEmptyFiles() {
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), mock(RemoteMediaFetcher.class),
+                new MediaPreprocessor(video -> List.of()), mock(PersonalityAnalyzer.class),
+                mock(PersonalityImageOpinionService.class),
+                new PersonalityPromptStore(tempDirectory.resolve("personality.md")),
+                new InterestMemoryStore(tempDirectory.resolve("memories.md")));
+        List<org.springframework.web.multipart.MultipartFile> htmlFiles = java.util.stream.IntStream.range(0, 51)
+                .mapToObj(index -> (org.springframework.web.multipart.MultipartFile) new MockMultipartFile(
+                        "htmlFiles", "page-" + index + ".html", "text/html", "<p>Example</p>".getBytes()))
+                .toList();
+        List<org.springframework.web.multipart.MultipartFile> imageFiles = java.util.stream.IntStream.range(0, 51)
+                .mapToObj(index -> (org.springframework.web.multipart.MultipartFile) new MockMultipartFile(
+                        "imageFiles", "image-" + index + ".png", "image/png", new byte[0]))
+                .toList();
+
+        IllegalArgumentException htmlFailure = assertThrows(
+                IllegalArgumentException.class, () -> service.processHtmlBatch(htmlFiles, ""));
+        IllegalArgumentException imageFailure = assertThrows(
+                IllegalArgumentException.class, () -> service.processImageBatch(imageFiles, ""));
+
+        assertTrue(htmlFailure.getMessage().contains("maximum of 50 files"));
+        assertTrue(imageFailure.getMessage().contains("maximum of 50 files"));
+    }
+
+    @Test
+    void analysesMoreThanTwelveHtmlMediaItemsInSeparateModelBatches() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var fetcher = mock(RemoteMediaFetcher.class);
+        var analyzer = mock(PersonalityAnalyzer.class);
+        var batchSizes = new ArrayList<Integer>();
+        List<RemoteMediaFetcher.MediaAsset> fetchedMedia = java.util.stream.IntStream.range(0, 25)
+                .mapToObj(index -> new RemoteMediaFetcher.MediaAsset(
+                        java.net.URI.create("https://media.example.test/" + index + ".png"),
+                        "image/png", new byte[] {(byte) index}))
+                .toList();
+        when(fetcher.fetch(anyList())).thenReturn(fetchedMedia);
+        when(analyzer.analyze(any(), any(), any(), any())).thenAnswer(invocation -> {
+            MediaDocumentExtractor.Extraction extraction = invocation.getArgument(0);
+            List<RemoteMediaFetcher.MediaAsset> media = invocation.getArgument(1);
+            batchSizes.add(media.size());
+            assertTrue(extraction.text().contains("HTML text summary"));
+            assertEquals(25, extraction.imageAltTexts().size());
+            assertTrue(extraction.imageAltTexts().stream().allMatch("A garden in bloom"::equals));
+            assertEquals(List.of("Botanical art"), extraction.tags());
+            String currentPrompt = invocation.getArgument(2);
+            return (currentPrompt.isBlank() ? "" : currentPrompt + " ") + "analysed " + media.size() + ".";
+        });
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, new InterestMemoryStore(tempDirectory.resolve("memories.md")));
+        StringBuilder html = new StringBuilder("<p>HTML text summary</p><span class=\"tag\">Botanical art</span>");
+        for (int index = 0; index < 25; index++) {
+            html.append("<img src=\"https://media.example.test/").append(index)
+                    .append(".png\" alt=\"A garden in bloom\">");
+        }
+        var file = new MockMultipartFile("file", "page.html", "text/html",
+                html.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        var result = service.process(file, "I enjoy these images.");
+
+        assertEquals(List.of(12, 12, 1), batchSizes);
+        assertEquals(25, result.analyzedMediaCount());
+        assertTrue(result.personalityPrompt().contains("analysed 1."));
+        assertEquals("analysed 12. analysed 12. analysed 1.", result.personalityPrompt());
+        assertEquals(result.personalityPrompt(), promptStore.load());
+    }
+
+    @Test
+    void identifiesNewPromptSentencesForAdditionLogging() {
+        assertEquals("I enjoy botanical art.", MediaPersonalityService.promptAdditions(
+                "I like calm gardens.", "I like calm gardens. I enjoy botanical art."));
+        assertEquals("", MediaPersonalityService.promptAdditions(
+                "I like calm gardens.", "I like calm gardens."));
     }
 
     @Test

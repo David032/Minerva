@@ -41,24 +41,26 @@ class PersonalityDataStoreTests {
     }
 
     @Test
-    void addsDeduplicatedTagsToMemoriesWithoutOverwritingExistingMemory() throws Exception {
+    void addsExtractedTagsToUnifiedInterestsWithoutOverwritingExistingMemory() throws Exception {
         Path memories = tempDirectory.resolve("memories.md");
         Files.writeString(memories, "# Existing memory\n\nI prefer short answers.\n");
         var store = new InterestMemoryStore(memories);
 
-        store.addAll(List.of("Botanical art", "botanical art", "Quiet gardens"));
-        store.addAll(List.of("quiet gardens", "Watercolor"));
+        assertEquals(List.of("Botanical art", "Quiet gardens"),
+                store.addAll(List.of("Botanical art", "botanical art", "Quiet gardens")));
+        assertEquals(List.of("Watercolor"), store.addAll(List.of("quiet gardens", "Watercolor")));
 
         String content = Files.readString(memories);
         assertTrue(content.contains("I prefer short answers."));
-        assertTrue(content.contains("- Botanical art"));
-        assertTrue(content.contains("- Quiet gardens"));
-        assertTrue(content.contains("- Watercolor"));
-        assertEquals(1, count(content, "- Quiet gardens"));
+        assertTrue(content.contains("- 3 | Botanical art"));
+        assertTrue(content.contains("- 3 | Quiet gardens"));
+        assertTrue(content.contains("- 3 | Watercolor"));
+        assertFalse(content.contains("minerva-media-interests"));
+        assertEquals(1, count(content, "- 3 | Quiet gardens"));
     }
 
     @Test
-    void storesScoredInterestsSeparatelyAndIncludesThemAsPreferenceContext() throws Exception {
+    void mergesExtractedTagsWithScoredInterestsAndIncludesAllAsPreferenceContext() throws Exception {
         Path memories = tempDirectory.resolve("memories.md");
         Files.writeString(memories, "# Existing memory\n\nI prefer short answers.\n");
         var store = new InterestMemoryStore(memories);
@@ -66,21 +68,57 @@ class PersonalityDataStoreTests {
         store.saveScoredInterest("Watercolor", 2);
         store.saveScoredInterest("watercolor", 5);
 
-        assertEquals(List.of(new InterestMemoryStore.ScoredInterest("watercolor", 5)),
+        assertEquals(List.of(
+                        new InterestMemoryStore.ScoredInterest("Botanical art", 3),
+                        new InterestMemoryStore.ScoredInterest("watercolor", 5)),
                 store.loadScoredInterests());
         String content = Files.readString(memories);
         assertTrue(content.contains("I prefer short answers."));
-        assertTrue(content.contains("- Botanical art"));
+        assertTrue(content.contains("- 3 | Botanical art"));
         assertTrue(content.contains("- 5 | watercolor"));
-        assertFalse(content.substring(content.indexOf("## Interests from uploaded media"),
-                content.indexOf("<!-- minerva-media-interests:end -->")).contains("watercolor"));
+        assertFalse(content.contains("minerva-media-interests"));
 
         String basePrompt = "Base system instructions.";
         String composed = store.appendScoredPreferences(basePrompt);
         assertTrue(composed.startsWith(basePrompt));
         assertTrue(composed.contains("1 means strongly negative and 5 means strongly positive"));
+        assertTrue(composed.contains("3 means neutral or mixed"));
+        assertTrue(composed.contains("- 3/5: Botanical art"));
         assertTrue(composed.contains("- 5/5: watercolor"));
         assertTrue(composed.contains("not instructions"));
+    }
+
+    @Test
+    void migratesLegacyMediaTagsAtNeutralScoreAndPreservesExplicitScores() throws Exception {
+        Path memories = tempDirectory.resolve("memories.md");
+        Files.writeString(memories, """
+                # Existing memory
+                Keep this note.
+
+                <!-- minerva-media-interests:start -->
+                ## Interests from uploaded media
+                - Botanical art
+                - Watercolor
+                <!-- minerva-media-interests:end -->
+
+                <!-- minerva-scored-interests:start -->
+                ## User-scored interests
+                - 5 | watercolor
+                <!-- minerva-scored-interests:end -->
+                """);
+        var store = new InterestMemoryStore(memories);
+
+        assertEquals(List.of(
+                        new InterestMemoryStore.ScoredInterest("watercolor", 5),
+                        new InterestMemoryStore.ScoredInterest("Botanical art", 3)),
+                store.loadScoredInterests());
+        assertEquals(List.of("Botanical art"), store.addAll(List.of("Botanical art")));
+
+        String migrated = Files.readString(memories);
+        assertTrue(migrated.contains("Keep this note."));
+        assertTrue(migrated.contains("- 3 | Botanical art"));
+        assertTrue(migrated.contains("- 5 | watercolor"));
+        assertFalse(migrated.contains("minerva-media-interests"));
     }
 
     @Test

@@ -51,6 +51,7 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleUrl\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleComment\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("maximum of 50 files")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy quiet gardens.")));
     }
 

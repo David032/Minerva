@@ -74,8 +74,8 @@ class MediaPersonalityWorkflowIntegrationTests {
         fetcher = mock(RemoteMediaFetcher.class);
         when(fetcher.fetch(anyList())).thenAnswer(invocation -> {
             List<java.net.URI> references = invocation.getArgument(0);
-            if (references.size() > 8) {
-                throw new IllegalArgumentException("The HTML file references more than 8 media items.");
+            if (references.size() > 50) {
+                throw new IllegalArgumentException("The HTML file references more than 50 media items.");
             }
             fetchedMedia.addAll(references);
             return references.stream()
@@ -174,9 +174,9 @@ class MediaPersonalityWorkflowIntegrationTests {
                     .andReturn();
 
             var resultModel = result.getModelAndView().getModel();
-            if (extracted.mediaUrls().size() > 8) {
+            if (extracted.mediaUrls().size() > 50) {
                 assertTrue(resultModel.containsKey("error"), resultModel.toString());
-                assertTrue(((String) resultModel.get("error")).contains("more than 8 media items"));
+                assertTrue(((String) resultModel.get("error")).contains("more than 50 media items"));
                 assertFalse(resultModel.containsKey("success"));
                 assertEquals(previousPrompt, promptStore.load());
                 String memoriesAfter = Files.exists(memoriesPath) ? Files.readString(memoriesPath) : null;
@@ -200,7 +200,7 @@ class MediaPersonalityWorkflowIntegrationTests {
 
         String persistedMemories = Files.readString(tempDirectory.resolve("memories.md"));
         for (String tag : expectedTags) {
-            assertTrue(persistedMemories.contains("- " + tag), "Missing persisted interest tag: " + tag);
+            assertTrue(persistedMemories.contains("- 3 | " + tag), "Missing persisted interest tag: " + tag);
         }
         assertTrue(expectedTags.size() >= 10, "The sample pages should cover multiple interest tags.");
         assertTrue(promptStore.load().contains(lastSuccessfulPageTagCount + " interest tags"));
@@ -221,7 +221,7 @@ class MediaPersonalityWorkflowIntegrationTests {
         var resultModel = result.getModelAndView().getModel();
         assertTrue(((String) resultModel.get("success")).contains("Processed 1 HTML file"));
         assertTrue(((String) resultModel.get("error")).contains("wrong.pdf"));
-        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- Watercolor"));
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("- 3 | Watercolor"));
         assertTrue(promptStore.load().contains("I enjoy these pages."));
     }
 
