@@ -28,6 +28,9 @@ Minerva can run a scheduled assistant check using instructions in `heartbeat.md`
 
 Application logs in the data directory's `logs` folder record heartbeat run IDs, tool names, whether calls returned or raised exceptions, and bounded tool results and assistant responses. **These logs can contain sensitive information**; restrict access to them. Tool inputs and direct memory-tool results are omitted, but other tool results or assistant responses may contain memory contents or secrets. A returned result is not necessarily a successful action. Memory tools and managed interests also log successful additions, updates, deletions and renames. Generic filesystem and shell operations can change memory files without producing memory-change events. Logs are not included in local backups.
 
+## Tool search
+
+Tool search is experimental and disabled by default. Set `MINERVA_TOOL_SEARCH_ENABLED=true` in the environment (or the Compose `.env` file) and restart Minerva to let the assistant and heartbeat discover tools on demand using a local keyword index. This can reduce the tool definitions sent to the model, but requires the configured model to search for and call tools reliably; keyword searches can also miss relevant tools. If tools stop working, set it to `false` and restart to restore the normal tool-calling path. Minerva does not automatically retry failed tool calls because a tool may already have performed an action.
 ## Discord
 
 Discord is optional. To connect Minerva to a server:

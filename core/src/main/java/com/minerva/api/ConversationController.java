@@ -11,6 +11,7 @@ import com.minerva.tools.RssTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.utils.FileManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.ai.session.SessionService;
@@ -46,11 +47,12 @@ public class ConversationController {
             MediaPersonalityService personalityService,
             AiActivityGate activityGate,
             JournivService journivService,
-            JournivTools journivTools
+            JournivTools journivTools,
+            @Value("${minerva.tool-search.enabled:false}") boolean toolSearchEnabled
     ) throws IOException {
         ConversationManager.Initialize(
                 ai, sessionService, skillImportService, dateTimeTools, reminderTools,
-                rssTools, personalityService, activityGate, journivService, journivTools
+                rssTools, personalityService, activityGate, journivService, journivTools, toolSearchEnabled
         );
         fileManager = FileManager.getInstance();
         conversation = new ConversationOperations() {
