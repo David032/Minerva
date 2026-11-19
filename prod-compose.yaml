@@ -30,7 +30,7 @@ services:
       IO_KEY: ${IO_KEY:?Set IO_KEY in .env}
       IO_USERNAME: ${IO_KEY:?Set IO_USERNAME in .env}
       BRAVE_API_KEY: ${BRAVE_API_KEY:? Set BRAVE_API_KEY in .env}
-      DISCORD_TOKEN: ${DISCORD_TOKEN:? Set DISCORD_TOKEN in .env}
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
     volumes:
       - core-tmp:/tmp
       - core-data:/MinervaOS

@@ -30,16 +30,7 @@ public class MinervaApplication {
         var app = SpringApplication.run(MinervaApplication.class, args);
         var env = Objects.requireNonNull(app).getEnvironment();
 
-        var discord = System.getenv("DISCORD_TOKEN");
-        if (discord != null) {
-            print("Discord token has been set!");
-            JDA api = JDABuilder.createDefault(System.getenv("DISCORD_TOKEN"))
-                    .enableIntents(GatewayIntent.MESSAGE_CONTENT).build();
-            api.addEventListener(new DiscordListener());
-            print(api.getStatus());
-        } else {
-            print("Discord token has not been set!");
-        }
+        startDiscord(System.getenv("DISCORD_TOKEN"));
 
         OllamaConnector.getInstance(env.getProperty("spring.ai.ollama.base-url"))
                 .connectToOllama(env.getProperty("spring.ai.ollama.base-url"), env.getProperty("ollama.required-model"));
@@ -54,6 +45,24 @@ public class MinervaApplication {
             }
         }
 
+    }
+
+    /**
+     * Starts the Discord listener when a non-blank bot token is configured.
+     *
+     * @param token the Discord bot token, or {@code null} to disable the integration
+     */
+    static void startDiscord(String token) {
+        if (token == null || token.isBlank()) {
+            print("Discord token has not been set!");
+            return;
+        }
+
+        print("Discord token has been set!");
+        JDA api = JDABuilder.createDefault(token)
+                .enableIntents(GatewayIntent.MESSAGE_CONTENT).build();
+        api.addEventListener(new DiscordListener());
+        print(api.getStatus());
     }
 
     @Bean
