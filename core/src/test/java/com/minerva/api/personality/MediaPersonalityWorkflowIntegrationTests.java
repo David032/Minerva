@@ -137,6 +137,9 @@ class MediaPersonalityWorkflowIntegrationTests {
     void uploadsSevenHundredHtmlPagesInOneZip() throws Exception {
         var bytes = new java.io.ByteArrayOutputStream();
         try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("/style.css"));
+            zip.write("body { color: red; }".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
             for (int index = 0; index < 700; index++) {
                 zip.putNextEntry(new java.util.zip.ZipEntry("pages/" + index + ".html"));
                 zip.write("<p>Gardens</p>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
@@ -151,6 +154,7 @@ class MediaPersonalityWorkflowIntegrationTests {
                 .andReturn();
 
         assertTrue(result.getModelAndView().getModel().get("success").toString().contains("Processed 700 ZIP file"));
+        assertFalse(result.getModelAndView().getModel().containsKey("error"));
         assertEquals("Updated from 0 interest tags with guidance: I like these", promptStore.load());
     }
 
