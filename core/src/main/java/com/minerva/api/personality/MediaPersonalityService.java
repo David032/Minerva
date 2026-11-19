@@ -178,7 +178,12 @@ public class MediaPersonalityService {
      * @throws IllegalArgumentException if the archive is invalid or exceeds its limits
      */
     public synchronized BatchSubmissionResult processZip(MultipartFile archive, String guidance) throws IOException {
-        List<MultipartFile> files = PersonalityZipArchive.read(archive);
+        try (var zip = PersonalityZipArchive.open(archive)) {
+            return processZipFiles(zip.files(), guidance);
+        }
+    }
+
+    private BatchSubmissionResult processZipFiles(List<MultipartFile> files, String guidance) throws IOException {
         int successfulFileCount = 0;
         int savedTagCount = 0;
         int analyzedMediaCount = 0;

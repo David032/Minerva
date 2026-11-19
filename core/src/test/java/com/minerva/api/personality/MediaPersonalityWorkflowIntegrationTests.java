@@ -134,6 +134,27 @@ class MediaPersonalityWorkflowIntegrationTests {
     }
 
     @Test
+    void uploadsSevenHundredHtmlPagesInOneZip() throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            for (int index = 0; index < 700; index++) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("pages/" + index + ".html"));
+                zip.write("<p>Gardens</p>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .file(new MockMultipartFile("zipFile", "pages.zip", "application/zip", bytes.toByteArray()))
+                        .param("guidance", "I like these"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertTrue(result.getModelAndView().getModel().get("success").toString().contains("Processed 700 ZIP file"));
+        assertEquals("Updated from 0 interest tags with guidance: I like these", promptStore.load());
+    }
+
+    @Test
     void uploadsMixedZipWithGuidanceAndReportsUnsupportedEntries() throws Exception {
         var bytes = new java.io.ByteArrayOutputStream();
         try (var zip = new java.util.zip.ZipOutputStream(bytes)) {

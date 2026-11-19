@@ -2,13 +2,12 @@ package com.minerva.api.personality;
 
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,49 +19,88 @@ import java.util.zip.ZipFile;
 /**
  * Validates and reads a bounded ZIP before any personality preferences are changed.
  */
-final class PersonalityZipArchive {
-    private static final long MAX_ARCHIVE_BYTES = 100L * 1024 * 1024;
-    private static final long MAX_ENTRY_BYTES = 20L * 1024 * 1024;
-    private static final long MAX_EXPANDED_BYTES = 100L * 1024 * 1024;
-    private static final int MAX_ENTRIES = 200;
-    private static final int MAX_FILES = 50;
+final class PersonalityZipArchive implements AutoCloseable {
+    private static final Limits LIMITS = new Limits(
+            1024L * 1024 * 1024, 20L * 1024 * 1024, 2L * 1024 * 1024 * 1024, 2_000, 1_000);
+    private final Path temporaryDirectory;
+    private final Limits limits;
+    private List<MultipartFile> files;
+
+    private PersonalityZipArchive(Path temporaryDirectory, Limits limits) {
+        this.temporaryDirectory = temporaryDirectory;
+        this.limits = limits;
+    }
 
     /**
-     * Reads regular archive entries without extracting paths to the filesystem.
+     * Validates and stages archive entries under generated temporary filenames.
      *
      * @param archive uploaded ZIP
-     * @return validated entries in archive order
+     * @return a resource holding validated entries in archive order; must be closed
      * @throws IOException if the archive cannot be read
      * @throws IllegalArgumentException if it is empty, unsafe, or exceeds a limit
      */
-    static List<MultipartFile> read(MultipartFile archive) throws IOException {
+    static PersonalityZipArchive open(MultipartFile archive) throws IOException {
+        return open(archive, null, LIMITS);
+    }
+
+    /**
+     * Validates an archive using a specified temporary parent directory.
+     *
+     * @param archive uploaded ZIP
+     * @param temporaryParent parent for staging, or null for the system temporary directory
+     * @param limits limits used to bound compressed and expanded content
+     * @return a resource that deletes its staged files when closed
+     * @throws IOException if the archive or temporary files cannot be read or written
+     * @throws IllegalArgumentException if it is empty, unsafe, or exceeds a limit
+     */
+    static PersonalityZipArchive open(MultipartFile archive, Path temporaryParent, Limits limits) throws IOException {
         if (archive == null || archive.isEmpty()) {
             throw new IllegalArgumentException("Choose a non-empty ZIP archive.");
         }
-        if (archive.getSize() > MAX_ARCHIVE_BYTES) {
-            throw new IllegalArgumentException("ZIP archives must be 100 MB or smaller.");
+        if (archive.getSize() > limits.archiveBytes()) {
+            throw new IllegalArgumentException("ZIP archives must be 1 GB or smaller.");
         }
-        Path temporary = Files.createTempFile("minerva-personality-", ".zip");
+        Path directory = temporaryParent == null
+                ? Files.createTempDirectory("minerva-personality-")
+                : Files.createTempDirectory(temporaryParent, "minerva-personality-");
+        var result = new PersonalityZipArchive(directory, limits);
         try {
+            Path temporary = directory.resolve("archive.zip");
             try (InputStream input = archive.getInputStream(); var output = Files.newOutputStream(temporary)) {
                 byte[] buffer = new byte[8192];
                 long total = 0;
                 int count;
                 while ((count = input.read(buffer)) != -1) {
                     total += count;
-                    if (total > MAX_ARCHIVE_BYTES) {
-                        throw new IllegalArgumentException("ZIP archives must be 100 MB or smaller.");
+                    if (total > limits.archiveBytes()) {
+                        throw new IllegalArgumentException("ZIP archives must be 1 GB or smaller.");
                     }
                     output.write(buffer, 0, count);
                 }
             }
-            return readEntries(temporary);
-        } finally {
-            Files.deleteIfExists(temporary);
+            result.files = result.readEntries(temporary);
+            Files.delete(temporary);
+            return result;
+        } catch (IOException | RuntimeException | Error failure) {
+            try {
+                result.close();
+            } catch (IOException cleanupFailure) {
+                failure.addSuppressed(cleanupFailure);
+            }
+            throw failure;
         }
     }
 
-    private static List<MultipartFile> readEntries(Path archive) throws IOException {
+    /**
+     * Returns the staged entries in archive order.
+     *
+     * @return validated uploaded files
+     */
+    List<MultipartFile> files() {
+        return files;
+    }
+
+    private List<MultipartFile> readEntries(Path archive) throws IOException {
         List<MultipartFile> files = new ArrayList<>();
         Set<String> names = new HashSet<>();
         long expanded = 0;
@@ -71,7 +109,7 @@ final class PersonalityZipArchive {
             var iterator = zip.entries();
             while (iterator.hasMoreElements()) {
                 ZipEntry entry = iterator.nextElement();
-                if (++entries > MAX_ENTRIES) {
+                if (++entries > limits.entries()) {
                     throw new IllegalArgumentException("The ZIP contains too many entries.");
                 }
                 String name = entry.getName();
@@ -82,30 +120,30 @@ final class PersonalityZipArchive {
                 if (entry.isDirectory()) {
                     continue;
                 }
-                if (files.size() >= MAX_FILES) {
-                    throw new IllegalArgumentException("A maximum of 50 files can be uploaded in one ZIP.");
+                if (files.size() >= limits.files()) {
+                    throw new IllegalArgumentException("A maximum of 1,000 files can be uploaded in one ZIP.");
                 }
                 CRC32 checksum = new CRC32();
-                ByteArrayOutputStream content = new ByteArrayOutputStream();
-                try (InputStream input = zip.getInputStream(entry)) {
+                Path staged = temporaryDirectory.resolve("entry-" + entries);
+                long size = 0;
+                try (InputStream input = zip.getInputStream(entry); var output = Files.newOutputStream(staged)) {
                     byte[] buffer = new byte[8192];
-                    long size = 0;
                     int count;
                     while ((count = input.read(buffer)) != -1) {
                         size += count;
                         expanded += count;
-                        if (size > MAX_ENTRY_BYTES || expanded > MAX_EXPANDED_BYTES) {
+                        if (size > limits.entryBytes() || expanded > limits.expandedBytes()) {
                             throw new IllegalArgumentException(
-                                    "ZIP contents exceed the 20 MB per-file or 100 MB total uncompressed limit.");
+                                    "ZIP contents exceed the 20 MB per-file or 2 GB total uncompressed limit.");
                         }
                         checksum.update(buffer, 0, count);
-                        content.write(buffer, 0, count);
+                        output.write(buffer, 0, count);
                     }
                     if (size != entry.getSize() || checksum.getValue() != entry.getCrc()) {
                         throw new IllegalArgumentException("The ZIP contains a corrupt file.");
                     }
                 }
-                files.add(new ArchiveFile(name, content.toByteArray()));
+                files.add(new ArchiveFile(name, staged, size));
             }
         } catch (java.util.zip.ZipException e) {
             throw new IllegalArgumentException("The uploaded ZIP is invalid or corrupt.", e);
@@ -114,6 +152,47 @@ final class PersonalityZipArchive {
             throw new IllegalArgumentException("The ZIP contains no files.");
         }
         return List.copyOf(files);
+    }
+
+    /**
+     * Deletes all staged files and their temporary directory.
+     *
+     * @throws IOException if temporary files cannot be removed
+     */
+    @Override
+    public void close() throws IOException {
+        IOException failure = null;
+        try (var children = Files.newDirectoryStream(temporaryDirectory)) {
+            for (Path child : children) {
+                try {
+                    Files.deleteIfExists(child);
+                } catch (IOException e) {
+                    if (failure == null) {
+                        failure = e;
+                    } else {
+                        failure.addSuppressed(e);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            if (failure == null) {
+                failure = e;
+            } else {
+                failure.addSuppressed(e);
+            }
+        }
+        try {
+            Files.deleteIfExists(temporaryDirectory);
+        } catch (IOException e) {
+            if (failure == null) {
+                failure = e;
+            } else {
+                failure.addSuppressed(e);
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
     }
 
     private static void validateName(String name) {
@@ -128,7 +207,19 @@ final class PersonalityZipArchive {
         }
     }
 
-    private record ArchiveFile(String filename, byte[] content) implements MultipartFile {
+    /**
+     * Bounds the archive, individual files, expanded content, and entry counts.
+     *
+     * @param archiveBytes maximum compressed bytes
+     * @param entryBytes maximum uncompressed bytes per file
+     * @param expandedBytes maximum uncompressed bytes across files
+     * @param entries maximum entries including directories
+     * @param files maximum non-directory files
+     */
+    record Limits(long archiveBytes, long entryBytes, long expandedBytes, int entries, int files) {
+    }
+
+    private record ArchiveFile(String filename, Path path, long size) implements MultipartFile {
         @Override
         public String getName() {
             return "file";
@@ -146,27 +237,27 @@ final class PersonalityZipArchive {
 
         @Override
         public boolean isEmpty() {
-            return content.length == 0;
+            return size == 0;
         }
 
         @Override
         public long getSize() {
-            return content.length;
+            return size;
         }
 
         @Override
-        public byte[] getBytes() {
-            return content.clone();
+        public byte[] getBytes() throws IOException {
+            return Files.readAllBytes(path);
         }
 
         @Override
-        public InputStream getInputStream() {
-            return new ByteArrayInputStream(content);
+        public InputStream getInputStream() throws IOException {
+            return Files.newInputStream(path);
         }
 
         @Override
         public void transferTo(File destination) throws IOException {
-            Files.write(destination.toPath(), content);
+            Files.copy(path, destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
         }
     }
 }
