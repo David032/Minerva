@@ -3,7 +3,10 @@ package com.minerva.api.personality;
 import com.minerva.core.personality.PersonalityPromptStore;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -16,12 +19,15 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @Tag("Unit")
@@ -266,7 +272,8 @@ class MediaPersonalityServiceTests {
     }
 
     @Test
-    void rollsBackTagMemoriesWhenPromptPersistenceFails() throws Exception {
+    @ExtendWith(OutputCaptureExtension.class)
+    void rollsBackTagMemoriesWhenPromptPersistenceFails(CapturedOutput output) throws Exception {
         Path promptPath = tempDirectory.resolve("personality.md");
         new PersonalityPromptStore(promptPath).save("Existing preferences");
         var promptStore = new FailingPersonalityPromptStore(promptPath);
@@ -286,6 +293,34 @@ class MediaPersonalityServiceTests {
 
         assertEquals("Existing preferences", new PersonalityPromptStore(promptPath).load());
         assertTrue(Files.notExists(memoryPath));
+        assertFalse(output.getOut().contains("Memory added source=media-interests"));
+    }
+
+    @Test
+    void restoresPromptAndMemoriesWhenMemoryPersistenceFails() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        promptStore.save("Existing preferences");
+        Path memoryPath = tempDirectory.resolve("memories.md");
+        Files.writeString(memoryPath, "Existing memory");
+        var memoryStore = spy(new InterestMemoryStore(memoryPath));
+        doAnswer(invocation -> {
+            Files.writeString(memoryPath, "Partial update");
+            throw new IOException("Memory write failed");
+        }).when(memoryStore).addAll(anyList());
+        var fetcher = mock(RemoteMediaFetcher.class);
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(fetcher.fetch(List.of())).thenReturn(List.of());
+        when(analyzer.analyze(any(), any(), any(), any())).thenReturn("Updated preferences");
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, memoryStore);
+        var file = new MockMultipartFile("file", "likes.html", "text/html",
+                "<span class=\"tag\">Botanical art</span>".getBytes());
+
+        assertThrows(IOException.class, () -> service.process(file, ""));
+
+        assertEquals("Existing preferences", promptStore.load());
+        assertEquals("Existing memory", Files.readString(memoryPath));
     }
 
     @Test

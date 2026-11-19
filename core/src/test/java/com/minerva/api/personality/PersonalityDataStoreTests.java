@@ -4,6 +4,9 @@ import com.minerva.core.personality.PersonalityPromptStore;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag("Unit")
+@ExtendWith(OutputCaptureExtension.class)
 class PersonalityDataStoreTests {
     @TempDir
     Path tempDirectory;
@@ -124,6 +128,23 @@ class PersonalityDataStoreTests {
         assertThrows(IllegalArgumentException.class, () -> store.saveScoredInterest(" ", 3));
         assertThrows(IllegalArgumentException.class, () -> store.saveScoredInterest("Art", 0));
         assertThrows(IllegalArgumentException.class, () -> store.saveScoredInterest("Art", 6));
+    }
+
+    @Test
+    void logsOnlyActualInterestChangesWithoutTheirContents(CapturedOutput output) throws Exception {
+        var store = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+        store.addAll(List.of("private interest"));
+        store.addAll(List.of("private interest"));
+        store.saveScoredInterest("secret interest", 2);
+        store.saveScoredInterest("secret interest", 2);
+        store.saveScoredInterest("secret interest", 5);
+
+        String logs = output.getOut();
+        assertEquals(1, count(logs, "Memory added source=media-interests count=1"));
+        assertEquals(1, count(logs, "Memory added source=scored-interest"));
+        assertEquals(1, count(logs, "Memory updated source=scored-interest"));
+        assertFalse(logs.contains("private interest"));
+        assertFalse(logs.contains("secret interest"));
     }
 
     private static int count(String content, String needle) {

@@ -2,6 +2,8 @@ package com.minerva.api.personality;
 
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -22,6 +24,7 @@ import java.util.Locale;
  */
 @Component
 public class InterestMemoryStore {
+    private static final Logger logger = LoggerFactory.getLogger(InterestMemoryStore.class);
     private static final String MEDIA_START = "<!-- minerva-media-interests:start -->";
     private static final String MEDIA_END = "<!-- minerva-media-interests:end -->";
     private static final String SCORED_START = "<!-- minerva-scored-interests:start -->";
@@ -70,6 +73,9 @@ public class InterestMemoryStore {
             return List.of();
         }
         writeUnifiedInterests(original, interests);
+        if (!added.isEmpty()) {
+            logger.info("Memory added source=media-interests count={}", added.size());
+        }
         return List.copyOf(added);
     }
 
@@ -172,9 +178,13 @@ public class InterestMemoryStore {
         String normalized = normalizeKeyword(keyword);
         String original = Files.exists(path) ? Files.readString(path, StandardCharsets.UTF_8) : "";
         var interests = readInterests(original);
-        interests.put(normalized.toLowerCase(Locale.ROOT), new ScoredInterest(normalized, score));
+        ScoredInterest saved = new ScoredInterest(normalized, score);
+        ScoredInterest previous = interests.put(normalized.toLowerCase(Locale.ROOT), saved);
 
         writeUnifiedInterests(original, interests);
+        if (!saved.equals(previous)) {
+            logger.info("Memory {} source=scored-interest", previous == null ? "added" : "updated");
+        }
         return new ScoredInterest(normalized, score);
     }
 
