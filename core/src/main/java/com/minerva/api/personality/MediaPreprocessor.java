@@ -35,25 +35,53 @@ public class MediaPreprocessor {
      *
      * @param assets fetched media assets
      * @return an immutable list of prepared images and sampled video frames
+     * @throws IllegalArgumentException if more than 12 images would be sent in one model request
      * @throws IOException if an animated image cannot be decoded or prepared
      */
     public List<RemoteMediaFetcher.MediaAsset> prepare(List<RemoteMediaFetcher.MediaAsset> assets) throws IOException {
-        List<RemoteMediaFetcher.MediaAsset> prepared = new ArrayList<>();
+        List<List<RemoteMediaFetcher.MediaAsset>> batches = prepareBatches(assets);
+        if (batches.size() > 1) {
+            throw new IllegalArgumentException("This upload contains too many images or video frames to analyze at once.");
+        }
+        return batches.isEmpty() ? List.of() : batches.getFirst();
+    }
+
+    /**
+     * Prepares media and groups the resulting images into requests accepted by the local model.
+     *
+     * @param assets fetched media assets
+     * @return immutable image batches, each containing no more than 12 images
+     * @throws IOException if animated media cannot be decoded or prepared
+     */
+    public List<List<RemoteMediaFetcher.MediaAsset>> prepareBatches(
+            List<RemoteMediaFetcher.MediaAsset> assets
+    ) throws IOException {
+        List<List<RemoteMediaFetcher.MediaAsset>> batches = new ArrayList<>();
+        List<RemoteMediaFetcher.MediaAsset> batch = new ArrayList<>(MAX_MODEL_IMAGES);
         for (RemoteMediaFetcher.MediaAsset asset : assets) {
+            List<RemoteMediaFetcher.MediaAsset> preparedAssets;
             if (asset.contentType().startsWith("video/")) {
-                for (byte[] frame : videoFrameExtractor.extract(asset)) {
-                    prepared.add(new RemoteMediaFetcher.MediaAsset(asset.source(), "image/png", frame));
-                }
+                preparedAssets = videoFrameExtractor.extract(asset).stream()
+                        .map(frame -> new RemoteMediaFetcher.MediaAsset(asset.source(), "image/png", frame))
+                        .toList();
             } else if (asset.contentType().equals("image/gif")) {
-                prepared.add(new RemoteMediaFetcher.MediaAsset(asset.source(), "image/png", firstGifFrame(asset)));
+                preparedAssets = List.of(new RemoteMediaFetcher.MediaAsset(
+                        asset.source(), "image/png", firstGifFrame(asset)));
             } else {
-                prepared.add(asset);
+                preparedAssets = List.of(asset);
             }
-            if (prepared.size() > MAX_MODEL_IMAGES) {
-                throw new IllegalArgumentException("This upload contains too many images or video frames to analyze at once.");
+            for (RemoteMediaFetcher.MediaAsset preparedAsset : preparedAssets) {
+                if (batch.size() == MAX_MODEL_IMAGES) {
+                    batches.add(List.copyOf(batch));
+                    batch.clear();
+                }
+                batch.add(preparedAsset);
             }
         }
-        return List.copyOf(prepared);
+        if (!batch.isEmpty()) {
+            batches.add(List.copyOf(batch));
+        }
+        return List.copyOf(batches);
     }
 
     private static byte[] firstGifFrame(RemoteMediaFetcher.MediaAsset gif) throws IOException {

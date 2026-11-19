@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f5f2">
-    <title>Scored interests | Minerva</title>
+    <title>Interests | Minerva</title>
     <link rel="stylesheet" href="/personality.css">
 </head>
 <body>
@@ -12,8 +12,8 @@
     <header class="header">
         <div>
             <p class="eyebrow">MINERVA · PERSONALIZATION</p>
-            <h1>Scored interests</h1>
-            <p class="intro">Tell Minerva how you feel about specific keywords and tags.</p>
+            <h1>Interests</h1>
+            <p class="intro">Review and score interests from uploads or add your own. Newly detected interests start at neutral (3/5).</p>
         </div>
         <nav class="header-links">
             <a href="/personality">Personality customization</a>
@@ -25,7 +25,7 @@
     <p class="notice error" role="alert" th:if="${error}" th:text="${error}"></p>
 
     <section class="card">
-        <h2>Add an interest</h2>
+        <h2>Add or score an interest</h2>
         <p class="hint">Scores range from 1 (strongly negative) to 5 (strongly positive). Values 2–4 represent intermediate opinions.</p>
         <form action="/personality/interests" method="post">
             <label for="keyword">Keyword or tag</label>
@@ -44,7 +44,7 @@
 
     <section class="card">
         <h2>Saved interests</h2>
-        <p class="hint" th:if="${#lists.isEmpty(scoredInterests)}">No scored interests saved yet.</p>
+        <p class="hint" th:if="${#lists.isEmpty(scoredInterests)}">No interests saved yet.</p>
         <div class="interest-list" th:unless="${#lists.isEmpty(scoredInterests)}">
             <form class="interest-row" action="/personality/interests" method="post"
                   th:each="interest : ${scoredInterests}">

@@ -2,6 +2,8 @@ package com.minerva.api.personality;
 
 import com.minerva.core.AiBusyException;
 import com.minerva.core.personality.PersonalityPromptStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +17,8 @@ import java.util.List;
  */
 @Service
 public class MediaPersonalityService {
+    private static final int MAX_BATCH_FILES = 50;
+    private static final Logger logger = LoggerFactory.getLogger(MediaPersonalityService.class);
     private static final String DEFAULT_IMAGE_REQUEST = "What is this image about?";
     private final MediaDocumentExtractor extractor;
     private final RemoteMediaFetcher mediaFetcher;
@@ -65,8 +69,8 @@ public class MediaPersonalityService {
     public synchronized SubmissionResult process(MultipartFile file, String guidance) throws IOException {
         MediaDocumentExtractor.Extraction extraction = extractor.extract(file);
         List<RemoteMediaFetcher.MediaAsset> fetchedMedia = mediaFetcher.fetch(extraction.mediaUrls());
-        List<RemoteMediaFetcher.MediaAsset> media = mediaPreprocessor.prepare(fetchedMedia);
-        return analyzeAndSave(extraction, media, guidance, extraction.mediaUrls().size());
+        List<List<RemoteMediaFetcher.MediaAsset>> mediaBatches = mediaPreprocessor.prepareBatches(fetchedMedia);
+        return analyzeAndSave(extraction, mediaBatches, guidance, extraction.mediaUrls().size());
     }
 
     /**
@@ -96,6 +100,7 @@ public class MediaPersonalityService {
      */
     public synchronized BatchSubmissionResult processHtmlBatch(List<MultipartFile> files, String guidance)
             throws IOException {
+        validateBatchFileCount(files);
         if (files == null || files.stream().noneMatch(file -> file != null && !file.isEmpty())) {
             throw new IllegalArgumentException("Choose at least one HTML file.");
         }
@@ -136,6 +141,7 @@ public class MediaPersonalityService {
      */
     public synchronized BatchSubmissionResult processImageBatch(List<MultipartFile> files, String comment)
             throws IOException {
+        validateBatchFileCount(files);
         if (files == null || files.stream().noneMatch(file -> file != null && !file.isEmpty())) {
             throw new IllegalArgumentException("Choose at least one image.");
         }
@@ -262,14 +268,19 @@ public class MediaPersonalityService {
 
     private SubmissionResult analyzeAndSave(
             MediaDocumentExtractor.Extraction extraction,
-            List<RemoteMediaFetcher.MediaAsset> media,
+            List<List<RemoteMediaFetcher.MediaAsset>> mediaBatches,
             String guidance,
             int analyzedMediaCount
     ) throws IOException {
         String currentPrompt = promptStore.load();
-        String updatedPrompt;
+        String updatedPrompt = currentPrompt;
         try {
-            updatedPrompt = analyzer.analyze(extraction, media, currentPrompt, guidance);
+            List<List<RemoteMediaFetcher.MediaAsset>> batches = mediaBatches.isEmpty()
+                    ? List.of(List.of())
+                    : mediaBatches;
+            for (List<RemoteMediaFetcher.MediaAsset> media : batches) {
+                updatedPrompt = analyzer.analyze(extraction, media, updatedPrompt, guidance);
+            }
         } catch (AiBusyException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -278,8 +289,9 @@ public class MediaPersonalityService {
 
         byte[] oldPrompt = promptStore.snapshot();
         byte[] oldMemories = memoryStore.snapshot();
+        List<String> addedTags;
         try {
-            memoryStore.addAll(extraction.tags());
+            addedTags = memoryStore.addAll(extraction.tags());
             promptStore.save(updatedPrompt);
         } catch (IOException | RuntimeException e) {
             try {
@@ -290,7 +302,46 @@ public class MediaPersonalityService {
             }
             throw e;
         }
-        return new SubmissionResult(extraction.tags().size(), analyzedMediaCount, updatedPrompt);
+        for (String tag : addedTags) {
+            logger.info("Added extracted interest at neutral score 3/5: {}", sanitiseLogValue(tag));
+        }
+        String additions = promptAdditions(currentPrompt, updatedPrompt);
+        if (!additions.isBlank()) {
+            logger.info("Added to personality prompt: {}", sanitiseLogValue(additions));
+        }
+        return new SubmissionResult(addedTags.size(), analyzedMediaCount, updatedPrompt);
+    }
+
+    private static void validateBatchFileCount(List<MultipartFile> files) {
+        long uploadedFileCount = files == null ? 0
+                : files.stream().filter(file -> file != null
+                        && (!file.isEmpty() || file.getOriginalFilename() != null
+                        && !file.getOriginalFilename().isBlank())).count();
+        if (uploadedFileCount > MAX_BATCH_FILES) {
+            throw new IllegalArgumentException("A maximum of 50 files can be uploaded in one go.");
+        }
+    }
+
+    static String promptAdditions(String currentPrompt, String updatedPrompt) {
+        java.util.Set<String> existingSentences = new java.util.HashSet<>();
+        if (currentPrompt != null) {
+            for (String sentence : currentPrompt.split("(?<=[.!?])\\s+")) {
+                if (!sentence.isBlank()) {
+                    existingSentences.add(sentence.trim());
+                }
+            }
+        }
+        if (updatedPrompt == null) {
+            return "";
+        }
+        return java.util.Arrays.stream(updatedPrompt.split("(?<=[.!?])\\s+"))
+                .map(String::trim)
+                .filter(sentence -> !sentence.isEmpty() && !existingSentences.contains(sentence))
+                .collect(java.util.stream.Collectors.joining(" "));
+    }
+
+    private static String sanitiseLogValue(String value) {
+        return value.replaceAll("[\\p{Cntrl}]+", " ").replaceAll("\\s+", " ").trim();
     }
 
     /**
