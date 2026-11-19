@@ -45,11 +45,12 @@ public class PersonalityController {
     }
 
     /**
-     * Processes an article, single document/image submission, or a batch of HTML documents.
+     * Processes an article, single document or image, batch, or ZIP submission.
      *
      * @param file optional single PDF, HTML, or image upload
      * @param htmlFiles optional batch of HTML uploads
      * @param imageFiles optional batch of image uploads
+     * @param zipFile optional ZIP of HTML pages and images
      * @param imageUrl optional image URL
      * @param comment optional image-analysis comment
      * @param guidance optional PDF or HTML preference guidance
@@ -64,6 +65,7 @@ public class PersonalityController {
             @RequestParam(required = false) MultipartFile file,
             @RequestParam(required = false) List<MultipartFile> htmlFiles,
             @RequestParam(required = false) List<MultipartFile> imageFiles,
+            @RequestParam(required = false) MultipartFile zipFile,
             @RequestParam(required = false) String imageUrl,
             @RequestParam(defaultValue = "") String comment,
             @RequestParam(defaultValue = "") String guidance,
@@ -87,6 +89,24 @@ public class PersonalityController {
             boolean hasHtmlBatch = htmlFiles != null && !htmlFiles.isEmpty();
             boolean hasImageBatch = imageFiles != null && !imageFiles.isEmpty();
             boolean hasArticleUrl = articleUrl != null && !articleUrl.isBlank();
+            boolean hasZip = zipFile != null;
+            if (hasZip) {
+                if (hasHtmlBatch || hasImageBatch || hasArticleUrl || file != null && !file.isEmpty()
+                        || imageUrl != null && !imageUrl.isBlank()) {
+                    throw new IllegalArgumentException("Submit a ZIP separately from other files or URLs.");
+                }
+                var result = service.processZip(zipFile, guidance);
+                model.addAttribute("personalityPrompt", result.personalityPrompt());
+                if (result.successfulFileCount() > 0) {
+                    model.addAttribute("success", "Processed " + result.successfulFileCount()
+                            + " ZIP file(s). Saved " + result.savedTagCount()
+                            + " interest tags and analysed " + result.analyzedMediaCount() + " media item(s).");
+                }
+                if (!result.failures().isEmpty()) {
+                    model.addAttribute("error", formatBatchFailures(result.failures()));
+                }
+                return "personality";
+            }
             if (hasHtmlBatch && hasImageBatch) {
                 throw new IllegalArgumentException("Submit either an HTML batch or an image batch, not both.");
             }

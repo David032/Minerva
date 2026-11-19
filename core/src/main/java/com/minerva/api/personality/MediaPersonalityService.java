@@ -169,6 +169,48 @@ public class MediaPersonalityService {
     }
 
     /**
+     * Processes the HTML pages and images in a validated ZIP independently.
+     *
+     * @param archive uploaded ZIP containing HTML pages and images
+     * @param guidance explicit preference guidance applied to every file
+     * @return aggregate counts, per-file failures, and the latest personality prompt
+     * @throws IOException if the archive or saved prompt cannot be read
+     * @throws IllegalArgumentException if the archive is invalid or exceeds its limits
+     */
+    public synchronized BatchSubmissionResult processZip(MultipartFile archive, String guidance) throws IOException {
+        try (var zip = PersonalityZipArchive.open(archive)) {
+            return processZipFiles(zip.files(), guidance);
+        }
+    }
+
+    private BatchSubmissionResult processZipFiles(List<MultipartFile> files, String guidance) throws IOException {
+        int successfulFileCount = 0;
+        int savedTagCount = 0;
+        int analyzedMediaCount = 0;
+        List<FileFailure> failures = new java.util.ArrayList<>();
+        for (MultipartFile file : files) {
+            String filename = displayFilename(file.getOriginalFilename());
+            try {
+                SubmissionResult result;
+                if (isHtmlFilename(filename)) {
+                    result = process(file, guidance);
+                } else if (isImageFilename(filename)) {
+                    result = processImage(file, null, guidance);
+                } else {
+                    throw new IllegalArgumentException("Only HTML files and JPEG, PNG, GIF, or WebP images are supported.");
+                }
+                successfulFileCount++;
+                savedTagCount += result.savedTagCount();
+                analyzedMediaCount += result.analyzedMediaCount();
+            } catch (IllegalArgumentException | IOException e) {
+                failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
+            }
+        }
+        return new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load());
+    }
+
+    /**
      * Analyses an uploaded image or image URL and uses the resulting description as preference context.
      *
      * @param imageFile an optional uploaded image
@@ -404,6 +446,12 @@ public class MediaPersonalityService {
         }
         String lower = filename.toLowerCase(java.util.Locale.ROOT);
         return lower.endsWith(".html") || lower.endsWith(".htm");
+    }
+
+    private static boolean isImageFilename(String filename) {
+        String lower = filename.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png")
+                || lower.endsWith(".gif") || lower.endsWith(".webp");
     }
 
     private static String displayFilename(String filename) {

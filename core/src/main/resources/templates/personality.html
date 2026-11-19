@@ -59,6 +59,19 @@
     </section>
 
     <section class="card">
+        <h2>Upload a ZIP of HTML pages and images</h2>
+        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+            <label for="zipFile">ZIP archive</label>
+            <input id="zipFile" name="zipFile" type="file" accept=".zip,application/zip" required>
+            <label for="zipGuidance">Preference guidance for the archive</label>
+            <textarea id="zipGuidance" name="guidance" rows="3" maxlength="2000"
+                      placeholder="For example: I like this style."></textarea>
+            <p class="hint">Up to 1,000 HTML and image files and 2,000 entries including folders. ZIPs are limited to 1 GB compressed, 20 MB per file and 2 GB uncompressed in total. Files are processed independently and large archives can take a long time; keep this page open. Failures are listed by filename. Public images referenced by HTML are fetched as usual; local references are not resolved.</p>
+            <button type="submit">Analyse ZIP</button>
+        </form>
+    </section>
+
+    <section class="card">
         <h2>Upload multiple images</h2>
         <form action="/personality/upload" method="post" enctype="multipart/form-data">
             <label for="imageFiles">Image files</label>

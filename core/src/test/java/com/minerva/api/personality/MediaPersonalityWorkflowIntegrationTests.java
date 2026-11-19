@@ -134,6 +134,55 @@ class MediaPersonalityWorkflowIntegrationTests {
     }
 
     @Test
+    void uploadsSevenHundredHtmlPagesInOneZip() throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            for (int index = 0; index < 700; index++) {
+                zip.putNextEntry(new java.util.zip.ZipEntry("pages/" + index + ".html"));
+                zip.write("<p>Gardens</p>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .file(new MockMultipartFile("zipFile", "pages.zip", "application/zip", bytes.toByteArray()))
+                        .param("guidance", "I like these"))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertTrue(result.getModelAndView().getModel().get("success").toString().contains("Processed 700 ZIP file"));
+        assertEquals("Updated from 0 interest tags with guidance: I like these", promptStore.load());
+    }
+
+    @Test
+    void uploadsMixedZipWithGuidanceAndReportsUnsupportedEntries() throws Exception {
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("folder/page.html"));
+            zip.write("<span class=\"tag\">Gardens</span>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry("folder/image.png"));
+            zip.write(new byte[] {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10});
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry("folder/notes.txt"));
+            zip.write(new byte[] {1});
+            zip.closeEntry();
+        }
+
+        var result = mockMvc.perform(multipart("/personality/upload")
+                        .file(new MockMultipartFile("zipFile", "pages.zip", "application/zip", bytes.toByteArray()))
+                        .param("guidance", "I like these"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("personality"))
+                .andReturn();
+
+        assertTrue(result.getModelAndView().getModel().get("success").toString().contains("Processed 2 ZIP file"));
+        assertTrue(result.getModelAndView().getModel().get("error").toString().contains("folder/notes.txt"));
+        assertEquals("Updated from 0 interest tags with guidance: I like these", promptStore.load());
+        assertTrue(Files.readString(tempDirectory.resolve("memories.md")).contains("Gardens"));
+    }
+
+    @Test
     void updatesPersonalityFromArticleAndUserComment() throws Exception {
         String articleUrl = "https://news.example.test/story";
         when(articleFetcher.fetch(articleUrl)).thenReturn(new RemoteArticleFetcher.Article(
