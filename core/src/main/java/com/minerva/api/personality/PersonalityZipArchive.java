@@ -11,6 +11,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
@@ -18,10 +19,11 @@ import java.util.zip.ZipFile;
 
 /**
  * Validates and reads a bounded ZIP before any personality preferences are changed.
+ * CSS files are ignored without being extracted, but still count towards the entry limit.
  */
 final class PersonalityZipArchive implements AutoCloseable {
     private static final Limits LIMITS = new Limits(
-            1024L * 1024 * 1024, 20L * 1024 * 1024, 2L * 1024 * 1024 * 1024, 2_000, 1_000);
+            1024L * 1024 * 1024, 20L * 1024 * 1024, 2L * 1024 * 1024 * 1024, 10_000, 10_000);
     private final Path temporaryDirectory;
     private final Limits limits;
     private List<MultipartFile> files;
@@ -113,6 +115,9 @@ final class PersonalityZipArchive implements AutoCloseable {
                     throw new IllegalArgumentException("The ZIP contains too many entries.");
                 }
                 String name = entry.getName();
+                if (!entry.isDirectory() && name.toLowerCase(Locale.ROOT).endsWith(".css")) {
+                    continue;
+                }
                 validateName(name);
                 if (!names.add(name)) {
                     throw new IllegalArgumentException("The ZIP contains duplicate paths.");
@@ -121,7 +126,8 @@ final class PersonalityZipArchive implements AutoCloseable {
                     continue;
                 }
                 if (files.size() >= limits.files()) {
-                    throw new IllegalArgumentException("A maximum of 1,000 files can be uploaded in one ZIP.");
+                    throw new IllegalArgumentException("A maximum of " + limits.files()
+                            + " files can be uploaded in one ZIP.");
                 }
                 CRC32 checksum = new CRC32();
                 Path staged = temporaryDirectory.resolve("entry-" + entries);

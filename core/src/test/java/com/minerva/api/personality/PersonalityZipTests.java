@@ -46,6 +46,7 @@ class PersonalityZipTests {
                 new InterestMemoryStore(directory.resolve("memories.md")));
         byte[] png = {(byte) 0x89, 'P', 'N', 'G', 13, 10, 26, 10};
         var archive = zip(
+                new Entry("/style.css", "body { color: red; }".getBytes(StandardCharsets.UTF_8)),
                 new Entry("folder/page.html", "<p>Garden</p><img src=\"https://example.test/image.png\">"
                         .getBytes(StandardCharsets.UTF_8)),
                 new Entry("folder/photo.png", png),
@@ -77,38 +78,61 @@ class PersonalityZipTests {
     }
 
     @Test
-    void rejectsTooManyFilesAndOversizedExpandedEntries() throws Exception {
-        Entry[] files = java.util.stream.IntStream.range(0, 1_001)
-                .mapToObj(index -> new Entry(index + ".html", new byte[] {1}))
-                .toArray(Entry[]::new);
-        var countError = assertThrows(IllegalArgumentException.class,
-                () -> PersonalityZipArchive.open(zip(files)));
-        assertTrue(countError.getMessage().contains("1,000 files"));
+    void rejectsOversizedExpandedEntries() throws Exception {
         var sizeError = assertThrows(IllegalArgumentException.class,
                 () -> PersonalityZipArchive.open(zip(new Entry("large.html", new byte[20 * 1024 * 1024 + 1]))));
         assertTrue(sizeError.getMessage().contains("20 MB"));
     }
 
     @Test
-    void acceptsFileAndEntryLimitsAndRejectsAnExtraEntry() throws Exception {
-        Entry[] thousandFiles = java.util.stream.IntStream.range(0, 1_000)
+    void acceptsTenThousandFilesAndRejectsAnExtraEntry() throws Exception {
+        Entry[] files = java.util.stream.IntStream.range(0, 10_000)
                 .mapToObj(index -> new Entry(index + ".html", new byte[] {1}))
                 .toArray(Entry[]::new);
-        try (var staged = PersonalityZipArchive.open(zip(thousandFiles))) {
-            assertEquals(1_000, staged.files().size());
+        try (var staged = PersonalityZipArchive.open(zip(files))) {
+            assertEquals(10_000, staged.files().size());
         }
 
-        var entries = new java.util.ArrayList<Entry>();
-        entries.add(new Entry("page.html", new byte[] {1}));
-        for (int index = 0; index < 1_999; index++) {
-            entries.add(new Entry("folder" + index + "/", new byte[0]));
-        }
-        try (var staged = PersonalityZipArchive.open(zip(entries.toArray(Entry[]::new)))) {
-            assertEquals(1, staged.files().size());
-        }
-        entries.add(new Entry("extra/", new byte[0]));
+        var entries = new java.util.ArrayList<>(List.of(files));
+        entries.add(new Entry("/extra.css", new byte[0]));
         assertThrows(IllegalArgumentException.class,
                 () -> PersonalityZipArchive.open(zip(entries.toArray(Entry[]::new))));
+    }
+
+    @Test
+    void ignoresCssWithoutStagingOrExpandingItAndStillBoundsEntries() throws Exception {
+        var archive = zip(new Entry("/style.css", new byte[20]),
+                new Entry("../nested/STYLE.CSS", new byte[20]),
+                new Entry("page.html", new byte[4]));
+        var limits = new PersonalityZipArchive.Limits(archive.getSize(), 4, 4, 3, 1);
+        try (var staged = PersonalityZipArchive.open(archive, directory, limits)) {
+            assertEquals(List.of("page.html"),
+                    staged.files().stream().map(file -> file.getOriginalFilename()).toList());
+            try (var directories = Files.list(directory)) {
+                Path stagingDirectory = directories.findFirst().orElseThrow();
+                try (var stagedFiles = Files.list(stagingDirectory)) {
+                    assertEquals(1, stagedFiles.count());
+                }
+            }
+        }
+        var entryLimit = new PersonalityZipArchive.Limits(archive.getSize(), 4, 4, 2, 1);
+        assertThrows(IllegalArgumentException.class,
+                () -> PersonalityZipArchive.open(archive, directory, entryLimit));
+        assertThrows(IllegalArgumentException.class,
+                () -> PersonalityZipArchive.open(zip(new Entry("/style.css", new byte[] {1}))));
+        assertThrows(IllegalArgumentException.class,
+                () -> PersonalityZipArchive.open(zip(new Entry("/style.css", new byte[] {1}),
+                        new Entry("../page.html", new byte[] {1}))));
+    }
+
+    @Test
+    void enforcesFileLimitAfterIgnoringCss() throws Exception {
+        var archive = zip(new Entry("/style.css", new byte[] {1}),
+                new Entry("one.html", new byte[] {1}), new Entry("two.html", new byte[] {1}));
+        var limits = new PersonalityZipArchive.Limits(archive.getSize(), 1, 2, 3, 1);
+        var error = assertThrows(IllegalArgumentException.class,
+                () -> PersonalityZipArchive.open(archive, directory, limits));
+        assertTrue(error.getMessage().contains("1 files"));
     }
 
     @Test
