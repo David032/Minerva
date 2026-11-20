@@ -23,7 +23,7 @@ BACKUP_VERSION = 1
 MANIFEST_NAME = "manifest.json"
 DATABASE_NAME = "database.dump"
 DATA_PREFIX = "data/"
-ALLOWED_DATA_ROOTS = ("skills", "memories", "personality.md", "heartbeat.md")
+ALLOWED_DATA_ROOTS = ("skills", "memories", "library", "personality.md", "heartbeat.md")
 CHUNK_SIZE = 1024 * 1024
 
 
@@ -253,17 +253,17 @@ stage="$root/{stage_name}"
 previous="$root/{previous_name}"
 mkdir -p "$stage" "$previous"
 cp -a /minerva-restore-input/. "$stage/"
-for name in skills memories personality.md heartbeat.md; do
+for name in skills memories library personality.md heartbeat.md; do
   if [ -e "$stage/$name" ]; then touch "$previous/.new-$name"; fi
   if [ -e "$root/$name" ]; then touch "$previous/.had-$name"; fi
 done
-for name in skills memories personality.md heartbeat.md; do
+for name in skills memories library personality.md heartbeat.md; do
   if [ -e "$root/$name" ]; then mv "$root/$name" "$previous/$name"; fi
 done
-for name in skills memories personality.md heartbeat.md; do
+for name in skills memories library personality.md heartbeat.md; do
   if [ -e "$stage/$name" ]; then mv "$stage/$name" "$root/$name"; fi
 done
-for name in skills memories personality.md heartbeat.md; do
+for name in skills memories library personality.md heartbeat.md; do
   if [ -e "$root/$name" ]; then chown -R 10001:10001 "$root/$name"; fi
 done
 """
@@ -272,7 +272,7 @@ done
 set -eu
 root={DATA_ROOT}
 previous="$root/{previous_name}"
-for name in skills memories personality.md heartbeat.md; do
+for name in skills memories library personality.md heartbeat.md; do
   if [ -e "$previous/.had-$name" ]; then
     if [ -e "$previous/$name" ]; then
       rm -rf "$root/$name"

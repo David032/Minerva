@@ -26,6 +26,7 @@ public class FileManager {
     private static FileManager single_instance = null;
     private final Path minervaPath;
     private final Path uploadPath;
+    private final Path libraryPath;
     private final Path skillsPath;
     private final Path memoriesPath;
     private final Path logsPath;
@@ -36,6 +37,7 @@ public class FileManager {
                 ? Paths.get(System.getProperty("user.home"), "MinervaOS")
                 : Paths.get(configuredDataDirectory);
         uploadPath = minervaPath.resolve("uploads");
+        libraryPath = minervaPath.resolve("library");
         skillsPath = minervaPath.resolve("skills");
         memoriesPath = minervaPath.resolve("memories");
         logsPath = minervaPath.resolve("logs");
@@ -45,6 +47,7 @@ public class FileManager {
     FileManager(Path root) {
         minervaPath = root;
         uploadPath = root.resolve("uploads");
+        libraryPath = root.resolve("library");
         skillsPath = root.resolve("skills");
         memoriesPath = root.resolve("memories");
         logsPath = root.resolve("logs");
@@ -73,6 +76,7 @@ public class FileManager {
         createDirectory(minervaPath, "data root");
         migrateLegacyData();
         createDirectory(uploadPath, "uploads");
+        createDirectory(libraryPath, "library");
         createDirectory(skillsPath, "skills");
         createDirectory(memoriesPath, "memories");
         createDirectory(logsPath, "logs");
@@ -212,6 +216,7 @@ public class FileManager {
     public String getDirectoryPath(Directory directory) {
         return switch (directory) {
             case UPLOADS -> uploadPath.toAbsolutePath().toString();
+            case LIBRARY -> libraryPath.toAbsolutePath().toString();
             case SKILLS -> skillsPath.toAbsolutePath().toString();
             case MEMORIES -> memoriesPath.toAbsolutePath().toString();
             case LOGS -> logsPath.toAbsolutePath().toString();
@@ -229,6 +234,24 @@ public class FileManager {
      */
     public Path getHeartbeatFilePath() {
         return minervaPath.resolve("heartbeat.md");
+    }
+
+    /**
+     * Gets the local heartbeat history file path.
+     *
+     * @return path to {@code heartbeat-memories.json} in the memories directory
+     */
+    public Path getHeartbeatMemoriesPath() {
+        return memoriesPath.resolve("heartbeat-memories.json");
+    }
+
+    /**
+     * Gets the local user-facing customization preferences path.
+     *
+     * @return path to {@code customization.json} in the memories directory
+     */
+    public Path getCustomizationPath() {
+        return memoriesPath.resolve("customization.json");
     }
 
     /**

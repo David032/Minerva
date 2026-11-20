@@ -1,9 +1,12 @@
 package com.minerva.core;
 
 import com.minerva.api.personality.InterestMemoryStore;
+import com.minerva.api.library.MediaLibraryTools;
 import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
+import com.minerva.tools.BraveImageSearchTools;
 import com.minerva.core.reminders.ReminderTools;
+import com.minerva.core.routines.RoutineTools;
 import com.minerva.core.journiv.JournivService;
 import com.minerva.core.journiv.JournivTools;
 import com.minerva.api.personality.MediaPersonalityService;
@@ -11,6 +14,8 @@ import com.minerva.tools.RssTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
+import com.minerva.core.personality.CustomizationStore;
+import com.minerva.core.personality.CustomizationTools;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
 import net.dv8tion.jda.api.JDABuilder;
@@ -87,7 +92,9 @@ public class ConversationManager {
     /// @param skillImportService service used to load and refresh imported skills.
     /// @param dateTimeTools date/time tools exposed to the assistant.
     /// @param reminderTools reminder tools exposed to the assistant.
+    /// @param routineTools recurring routine tools exposed to the assistant.
     /// @param rssTools RSS tools exposed to the assistant.
+    /// @param mediaLibraryTools curated media-library tools exposed to the assistant.
     /// @param personalityService personality image workflow exposed to the assistant.
     /// @param activityGate gate shared by foreground requests and the heartbeat.
     /// @param journivService activity recorder for the optional Journiv integration.
@@ -100,11 +107,14 @@ public class ConversationManager {
             SkillImportService skillImportService,
             DateTimeTools dateTimeTools,
             ReminderTools reminderTools,
+            RoutineTools routineTools,
             RssTools rssTools,
+            MediaLibraryTools mediaLibraryTools,
             MediaPersonalityService personalityService,
             AiActivityGate activityGate,
             JournivService journivService,
             JournivTools journivTools,
+            CustomizationTools customizationTools,
             boolean toolSearchEnabled
     ) throws IOException {
         ConversationManager.activityGate = activityGate;
@@ -162,17 +172,23 @@ public class ConversationManager {
                 new SkillImportTools(skillImportService),
                 dateTimeTools,
                 reminderTools,
+                routineTools,
                 rssTools,
-                personalityService
+                mediaLibraryTools,
+                personalityService,
+                customizationTools
         };
         if (journivService.enabled()) {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
             activeTools[activeTools.length - 1] = journivTools;
         }
         if (System.getenv("BRAVE_API_KEY") != null) {
-            activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
-            activeTools[activeTools.length - 1] =
-                    BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
+            String braveApiKey = System.getenv("BRAVE_API_KEY");
+            int currentToolCount = activeTools.length;
+            activeTools = Arrays.copyOf(activeTools, currentToolCount + 2);
+            activeTools[currentToolCount] =
+                    BraveWebSearchTool.builder(braveApiKey).resultCount(15).build();
+            activeTools[currentToolCount + 1] = new BraveImageSearchTools(braveApiKey);
         }
         skillImportService.setSkillChangeListener(ConversationManager::refreshSkills);
         refreshSkills();
@@ -264,7 +280,9 @@ public class ConversationManager {
         String basePrompt = resourceLoader.getResource("classpath:/prompts/BASE_PROMPT.md").getContentAsString(Charset.defaultCharset()) +
                 resourceLoader.getResource("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md").getContentAsString(Charset.defaultCharset());
         String personalityPrompt = new PersonalityPromptStore(FileManager.getInstance()).composeWith(basePrompt);
-        return new InterestMemoryStore(FileManager.getInstance()).appendScoredPreferences(personalityPrompt);
+        InterestMemoryStore memoryStore = new InterestMemoryStore(FileManager.getInstance());
+        String withPreferences = memoryStore.appendLongTermGoals(memoryStore.appendScoredPreferences(personalityPrompt));
+        return new CustomizationStore(FileManager.getInstance()).appendSpeakingStyle(withPreferences);
     }
 
     /// <summary>

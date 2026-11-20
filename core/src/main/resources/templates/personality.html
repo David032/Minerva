@@ -7,7 +7,7 @@
     <title>Personality | Minerva</title>
     <link rel="stylesheet" href="/personality.css">
 </head>
-<body>
+<body th:attr="data-palette=${customization.palette},data-layout=${customization.layout},data-typography=${customization.typography}">
 <main class="page">
     <header class="header">
         <div>
@@ -16,6 +16,7 @@
             <p class="intro">Share a PDF, HTML page, or image so Minerva can learn from its content and your guidance.</p>
         </div>
         <nav class="header-links">
+            <a href="/about">About Minerva</a>
             <a href="/personality/interests">Manage interests</a>
             <a href="/">Back to chat</a>
         </nav>
@@ -23,6 +24,49 @@
 
     <p class="notice success" role="status" th:if="${success}" th:text="${success}"></p>
     <p class="notice error" role="alert" th:if="${error}" th:text="${error}"></p>
+
+    <section class="card">
+        <h2>Appearance and speaking style</h2>
+        <p class="hint">Minerva can make these bounded changes as its personality develops. Settings are saved locally and can be reset here.</p>
+        <form action="/personality/customization" method="post">
+            <label for="palette">Colour palette</label>
+            <select id="palette" name="palette">
+                <option value="forest" th:selected="${customization.palette == 'forest'}">Forest</option>
+                <option value="ocean" th:selected="${customization.palette == 'ocean'}">Ocean</option>
+                <option value="rose" th:selected="${customization.palette == 'rose'}">Rose</option>
+                <option value="midnight" th:selected="${customization.palette == 'midnight'}">Midnight</option>
+                <option value="gothic" th:selected="${customization.palette == 'gothic'}">Gothic</option>
+                <option value="cyberpunk" th:selected="${customization.palette == 'cyberpunk'}">Cyberpunk</option>
+                <option value="futuristic" th:selected="${customization.palette == 'futuristic'}">Futuristic</option>
+                <option value="occult" th:selected="${customization.palette == 'occult'}">Occult</option>
+                <option value="grimdark" th:selected="${customization.palette == 'grimdark'}">Grimdark</option>
+                <option value="dark" th:selected="${customization.palette == 'dark'}">Dark</option>
+            </select>
+            <label for="layout">Layout</label>
+            <select id="layout" name="layout">
+                <option value="compact" th:selected="${customization.layout == 'compact'}">Compact</option>
+                <option value="comfortable" th:selected="${customization.layout == 'comfortable'}">Comfortable</option>
+                <option value="wide" th:selected="${customization.layout == 'wide'}">Wide</option>
+            </select>
+            <label for="typography">Typography</label>
+            <select id="typography" name="typography">
+                <option value="system" th:selected="${customization.typography == 'system'}">System sans-serif</option>
+                <option value="serif" th:selected="${customization.typography == 'serif'}">Serif</option>
+                <option value="mono" th:selected="${customization.typography == 'mono'}">Monospaced</option>
+            </select>
+            <label for="speakingStyle">Speaking style</label>
+            <select id="speakingStyle" name="speakingStyle">
+                <option value="warm" th:selected="${customization.speakingStyle == 'warm'}">Warm</option>
+                <option value="direct" th:selected="${customization.speakingStyle == 'direct'}">Direct</option>
+                <option value="playful" th:selected="${customization.speakingStyle == 'playful'}">Playful</option>
+                <option value="formal" th:selected="${customization.speakingStyle == 'formal'}">Formal</option>
+            </select>
+            <div class="actions">
+                <button type="submit">Save settings</button>
+                <button class="secondary" type="submit" formaction="/personality/customization/reset">Reset settings</button>
+            </div>
+        </form>
+    </section>
 
     <section class="card">
         <h2>Learn from media</h2>
@@ -60,7 +104,8 @@
 
     <section class="card">
         <h2>Upload a ZIP of HTML pages and images</h2>
-        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+        <form action="/api/personality/imports" method="post" enctype="multipart/form-data"
+              data-personality-import-form>
             <label for="zipFile">ZIP archive</label>
             <input id="zipFile" name="zipFile" type="file" accept=".zip,application/zip" required>
             <label for="zipGuidance">Preference guidance for the archive</label>
@@ -73,7 +118,8 @@
 
     <section class="card">
         <h2>Upload multiple images</h2>
-        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+        <form action="/api/personality/imports" method="post" enctype="multipart/form-data"
+              data-personality-import-form>
             <label for="imageFiles">Image files</label>
             <input id="imageFiles" name="imageFiles" type="file" multiple
                    accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
@@ -87,7 +133,8 @@
 
     <section class="card">
         <h2>Upload multiple HTML files</h2>
-        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+        <form action="/api/personality/imports" method="post" enctype="multipart/form-data"
+              data-personality-import-form>
             <label for="htmlFiles">HTML files</label>
             <input id="htmlFiles" name="htmlFiles" type="file" multiple accept=".html,.htm,text/html">
             <label for="batchGuidance">Optional guidance for this batch</label>
@@ -96,6 +143,13 @@
             <p class="hint">A maximum of 50 files can be uploaded in one go. Each file is processed independently through the same HTML workflow. Up to 50 referenced media items per page are analysed; successful files are saved even if another file fails, and failures are listed by filename.</p>
             <button type="submit">Analyze HTML files</button>
         </form>
+    </section>
+
+    <section class="card">
+        <h2>Background imports</h2>
+        <div id="personality-import-jobs" role="log" aria-live="polite">
+            <p class="hint">Submitted imports continue if you close this page. Their status will be restored here when you return.</p>
+        </div>
     </section>
 
     <section class="card">
@@ -112,5 +166,7 @@
         </form>
     </section>
 </main>
+<script src="/personality.js" defer></script>
+<script src="/customization.js" defer></script>
 </body>
 </html>

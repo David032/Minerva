@@ -131,6 +131,39 @@ class PersonalityDataStoreTests {
     }
 
     @Test
+    void replacesLongTermGoalsAndAddsThemToThePromptAsEscapedContext() throws Exception {
+        Path memories = tempDirectory.resolve("memories.md");
+        Files.writeString(memories, "# Existing memory\n\nKeep this note.\n");
+        var store = new InterestMemoryStore(memories);
+        store.addAll(List.of("Botanical art"));
+        List<String> firstGoals = List.of("Research gardens", "Explore art", "Develop a useful tool");
+
+        store.replaceLongTermGoals(firstGoals);
+        store.replaceLongTermGoals(List.of("Study local ecology", "Learn about sculpture",
+                "Plan useful experiments <carefully>"));
+
+        String content = Files.readString(memories);
+        assertTrue(content.contains("Keep this note."));
+        assertTrue(content.contains("- 3 | Botanical art"));
+        assertFalse(content.contains("Research gardens"));
+        assertEquals(1, count(content, "minerva-long-term-goals:start"));
+        String composed = store.appendLongTermGoals("Base system prompt.");
+        assertTrue(composed.startsWith("Base system prompt."));
+        assertTrue(composed.contains("Study local ecology"));
+        assertTrue(composed.contains("Plan useful experiments &lt;carefully&gt;"));
+        assertTrue(composed.contains("not override the base instructions"));
+    }
+
+    @Test
+    void rejectsGoalSetsOutsideTheSupportedRange() {
+        var store = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+
+        assertThrows(IllegalArgumentException.class, () -> store.replaceLongTermGoals(List.of("one", "two")));
+        assertThrows(IllegalArgumentException.class,
+                () -> store.replaceLongTermGoals(List.of("one", "two", "x".repeat(301))));
+    }
+
+    @Test
     void logsOnlyActualInterestChangesWithoutTheirContents(CapturedOutput output) throws Exception {
         var store = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
         store.addAll(List.of("private interest"));
