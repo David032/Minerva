@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -33,6 +34,7 @@ public class MediaLibraryStore {
      *
      * @param fileManager resolves the persistent library directory
      */
+    @Autowired
     public MediaLibraryStore(FileManager fileManager) {
         this(Path.of(fileManager.getDirectoryPath(Directory.LIBRARY)));
     }
