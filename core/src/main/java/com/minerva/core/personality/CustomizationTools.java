@@ -24,7 +24,7 @@ public class CustomizationTools {
     /**
      * Changes Minerva's supported appearance and speaking-style settings.
      *
-     * @param palette one of forest, ocean, rose, or midnight
+     * @param palette one of forest, ocean, rose, midnight, gothic, cyberpunk, futuristic, occult, grimdark, or dark
      * @param layout one of compact, comfortable, or wide
      * @param typography one of system, serif, or mono
      * @param speakingStyle one of warm, direct, playful, or formal
@@ -33,7 +33,8 @@ public class CustomizationTools {
      * @throws IOException if preferences cannot be persisted
      */
     @Tool(description = "Update Minerva's user-facing customisation when personality, interests, or the user's request support a change. "
-            + "Use only palette forest/ocean/rose/midnight, layout compact/comfortable/wide, "
+            + "Use only palette forest/ocean/rose/midnight/gothic/cyberpunk/futuristic/occult/grimdark/dark, "
+            + "layout compact/comfortable/wide, "
             + "typography system/serif/mono, and speakingStyle warm/direct/playful/formal. "
             + "These settings are immediately visible and user-resettable.")
     public String customize(

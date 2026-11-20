@@ -20,7 +20,9 @@ import java.util.Set;
 @Component
 public class CustomizationStore {
     private static final Gson GSON = new Gson();
-    private static final Set<String> PALETTES = Set.of("forest", "ocean", "rose", "midnight");
+    private static final Set<String> PALETTES = Set.of(
+            "forest", "ocean", "rose", "midnight", "gothic", "cyberpunk", "futuristic",
+            "occult", "grimdark", "dark");
     private static final Set<String> LAYOUTS = Set.of("compact", "comfortable", "wide");
     private static final Set<String> TYPOGRAPHIES = Set.of("system", "serif", "mono");
     private static final Set<String> SPEAKING_STYLES = Set.of("warm", "direct", "playful", "formal");

@@ -3,6 +3,8 @@ package com.minerva.core.personality;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -41,6 +43,17 @@ class CustomizationStoreTests {
         assertThrows(IllegalArgumentException.class,
                 () -> store.saveSettings("red; background-image: url(x)", "wide", "system", "warm"));
         assertEquals("forest", store.load().palette());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"gothic", "cyberpunk", "futuristic", "occult", "grimdark", "dark"})
+    void persistsNewColourPalettes(String palette) throws IOException {
+        Path path = temporaryDirectory.resolve("customization.json");
+        CustomizationStore store = new CustomizationStore(path);
+
+        store.saveSettings(palette, "comfortable", "system", "warm");
+
+        assertEquals(palette, new CustomizationStore(path).load().palette());
     }
 
     @Test

@@ -240,6 +240,78 @@ body[data-palette="midnight"] {
     --button-text: #182132;
 }
 
+body[data-palette="gothic"] {
+    color-scheme: dark;
+    --page-colour: #171217;
+    --surface-colour: #282029;
+    --text-colour: #f0e7eb;
+    --muted-colour: #cbbac3;
+    --border-colour: #51404c;
+    --accent-colour: #d896ac;
+    --accent-hover: #edb4c6;
+    --button-text: #24121b;
+}
+
+body[data-palette="cyberpunk"] {
+    color-scheme: dark;
+    --page-colour: #100e20;
+    --surface-colour: #1d1932;
+    --text-colour: #f2efff;
+    --muted-colour: #c5bfe2;
+    --border-colour: #51476b;
+    --accent-colour: #64f3e5;
+    --accent-hover: #adfff4;
+    --button-text: #101528;
+}
+
+body[data-palette="futuristic"] {
+    color-scheme: light;
+    --page-colour: #e8f1f5;
+    --surface-colour: #f9fcff;
+    --text-colour: #182e3b;
+    --muted-colour: #526b79;
+    --border-colour: #c5dbe5;
+    --accent-colour: #12647b;
+    --accent-hover: #0c4d60;
+    --button-text: #fff;
+}
+
+body[data-palette="occult"] {
+    color-scheme: dark;
+    --page-colour: #171322;
+    --surface-colour: #272036;
+    --text-colour: #f0eafa;
+    --muted-colour: #cbbfdb;
+    --border-colour: #504260;
+    --accent-colour: #c4a6ec;
+    --accent-hover: #dcc8fa;
+    --button-text: #1c1429;
+}
+
+body[data-palette="grimdark"] {
+    color-scheme: dark;
+    --page-colour: #1b1916;
+    --surface-colour: #2b2822;
+    --text-colour: #eee9dd;
+    --muted-colour: #c9c0ad;
+    --border-colour: #504a3e;
+    --accent-colour: #d7b66f;
+    --accent-hover: #ead09b;
+    --button-text: #251c0f;
+}
+
+body[data-palette="dark"] {
+    color-scheme: dark;
+    --page-colour: #151617;
+    --surface-colour: #252729;
+    --text-colour: #f0f1f2;
+    --muted-colour: #c0c4c7;
+    --border-colour: #484c50;
+    --accent-colour: #bcc7d1;
+    --accent-hover: #d8e1e9;
+    --button-text: #171a1c;
+}
+
 body[data-palette] .header a,
 body[data-palette] .hint,
 body[data-palette] .intro,

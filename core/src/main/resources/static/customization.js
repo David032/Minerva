@@ -1,5 +1,6 @@
 const customizationOptions = {
-    palette: new Set(["forest", "ocean", "rose", "midnight"]),
+    palette: new Set(["forest", "ocean", "rose", "midnight", "gothic", "cyberpunk", "futuristic",
+        "occult", "grimdark", "dark"]),
     layout: new Set(["compact", "comfortable", "wide"]),
     typography: new Set(["system", "serif", "mono"])
 };
