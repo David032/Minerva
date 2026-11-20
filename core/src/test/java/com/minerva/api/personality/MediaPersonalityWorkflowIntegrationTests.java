@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -87,6 +88,9 @@ class MediaPersonalityWorkflowIntegrationTests {
         when(videoFrameExtractor.extract(org.mockito.ArgumentMatchers.any()))
                 .thenReturn(List.of(new byte[] {1, 2, 3}));
         analyzer = mock(PersonalityAnalyzer.class);
+        when(analyzer.compact(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analyzer.generateLongTermGoals(anyString(), anyList()))
+                .thenReturn(List.of("Learn about the world", "Explore useful skills", "Create something meaningful"));
         analyzedMedia = new ArrayList<>();
         when(analyzer.analyze(
                 org.mockito.ArgumentMatchers.any(),
