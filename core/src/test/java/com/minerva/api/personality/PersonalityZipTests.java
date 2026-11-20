@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -34,6 +36,7 @@ class PersonalityZipTests {
     void processesMixedFilesWithSharedGuidanceAndReportsFailures() throws Exception {
         var fetcher = mock(RemoteMediaFetcher.class);
         var analyzer = mock(PersonalityAnalyzer.class);
+        stubBatchFinalisation(analyzer);
         var opinion = mock(PersonalityImageOpinionService.class);
         var promptStore = new PersonalityPromptStore(directory.resolve("personality.md"));
         URI imageUrl = URI.create("https://example.test/image.png");
@@ -139,6 +142,7 @@ class PersonalityZipTests {
     void processesSevenHundredHtmlPages() throws Exception {
         var fetcher = mock(RemoteMediaFetcher.class);
         var analyzer = mock(PersonalityAnalyzer.class);
+        stubBatchFinalisation(analyzer);
         when(fetcher.fetch(List.of())).thenReturn(List.of());
         when(analyzer.analyze(any(), any(), any(), eq("I like these"))).thenReturn("I like these.");
         var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
@@ -218,6 +222,12 @@ class PersonalityZipTests {
             }
         }
         return new MockMultipartFile("zipFile", "personality.zip", "application/zip", bytes.toByteArray());
+    }
+
+    private static void stubBatchFinalisation(PersonalityAnalyzer analyzer) {
+        when(analyzer.compact(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analyzer.generateLongTermGoals(anyString(), anyList()))
+                .thenReturn(List.of("Learn about the world", "Explore useful skills", "Create something meaningful"));
     }
 
     private record Entry(String name, byte[] content) {

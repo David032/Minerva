@@ -126,8 +126,8 @@ public class MediaPersonalityService {
                 failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
             }
         }
-        return new BatchSubmissionResult(
-                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load());
+        return finishBatch(new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load()));
     }
 
     /**
@@ -164,8 +164,8 @@ public class MediaPersonalityService {
                 failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
             }
         }
-        return new BatchSubmissionResult(
-                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load());
+        return finishBatch(new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load()));
     }
 
     /**
@@ -206,8 +206,53 @@ public class MediaPersonalityService {
                 failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
             }
         }
-        return new BatchSubmissionResult(
-                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load());
+        return finishBatch(new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load()));
+    }
+
+    private BatchSubmissionResult finishBatch(BatchSubmissionResult result) throws IOException {
+        if (result.successfulFileCount() == 0) {
+            return result;
+        }
+        String compactedPrompt;
+        List<String> goals;
+        try {
+            compactedPrompt = analyzer.compact(result.personalityPrompt());
+            goals = analyzer.generateLongTermGoals(compactedPrompt, memoryStore.loadScoredInterests());
+        } catch (AiBusyException | IllegalStateException | IOException e) {
+            return withFinalisationFailure(result, e);
+        }
+
+        byte[] previousPrompt = promptStore.snapshot();
+        byte[] previousMemories = memoryStore.snapshot();
+        try {
+            promptStore.save(compactedPrompt);
+            memoryStore.replaceLongTermGoals(goals);
+        } catch (IOException | RuntimeException e) {
+            try {
+                promptStore.restore(previousPrompt);
+                memoryStore.restore(previousMemories);
+            } catch (IOException rollbackFailure) {
+                e.addSuppressed(rollbackFailure);
+                logger.error("Could not roll back compacted personality data after a failed batch finalisation.",
+                        rollbackFailure);
+            }
+            return withFinalisationFailure(result, e);
+        }
+        return new BatchSubmissionResult(result.successfulFileCount(), result.savedTagCount(),
+                result.analyzedMediaCount(), result.failures(), compactedPrompt);
+    }
+
+    private static BatchSubmissionResult withFinalisationFailure(
+            BatchSubmissionResult result,
+            Exception exception
+    ) {
+        List<FileFailure> failures = new java.util.ArrayList<>(result.failures());
+        failures.add(new FileFailure("Personality update",
+                exception.getMessage() == null ? "Could not compact preferences or refresh long-term goals."
+                        : exception.getMessage()));
+        return new BatchSubmissionResult(result.successfulFileCount(), result.savedTagCount(),
+                result.analyzedMediaCount(), failures, result.personalityPrompt());
     }
 
     /**
@@ -405,6 +450,7 @@ public class MediaPersonalityService {
      */
     public synchronized void savePrompt(String prompt) throws IOException {
         promptStore.save(prompt);
+        refreshLongTermGoals(prompt);
     }
 
     /**
@@ -414,6 +460,20 @@ public class MediaPersonalityService {
      */
     public synchronized void resetPrompt() throws IOException {
         promptStore.reset();
+        refreshLongTermGoals("");
+    }
+
+    private void refreshLongTermGoals(String personalityPrompt) throws IOException {
+        try {
+            memoryStore.replaceLongTermGoals(analyzer.generateLongTermGoals(
+                    personalityPrompt, memoryStore.loadScoredInterests()));
+        } catch (AiBusyException e) {
+            throw new IOException(
+                    "The personality prompt was updated, but Minerva is busy and its long-term goals could not be refreshed.",
+                    e);
+        } catch (IllegalArgumentException | IllegalStateException | IOException e) {
+            throw new IOException("The personality prompt was updated, but its long-term goals could not be refreshed.", e);
+        }
     }
 
     /**

@@ -51,6 +51,9 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"zipFile\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleUrl\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"articleComment\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/api/personality/imports")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("data-personality-import-form")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/personality.js")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("maximum of 50 files")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy quiet gardens.")));

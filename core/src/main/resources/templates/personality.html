@@ -60,7 +60,8 @@
 
     <section class="card">
         <h2>Upload a ZIP of HTML pages and images</h2>
-        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+        <form action="/api/personality/imports" method="post" enctype="multipart/form-data"
+              data-personality-import-form>
             <label for="zipFile">ZIP archive</label>
             <input id="zipFile" name="zipFile" type="file" accept=".zip,application/zip" required>
             <label for="zipGuidance">Preference guidance for the archive</label>
@@ -73,7 +74,8 @@
 
     <section class="card">
         <h2>Upload multiple images</h2>
-        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+        <form action="/api/personality/imports" method="post" enctype="multipart/form-data"
+              data-personality-import-form>
             <label for="imageFiles">Image files</label>
             <input id="imageFiles" name="imageFiles" type="file" multiple
                    accept=".jpg,.jpeg,.png,.gif,.webp,image/*">
@@ -87,7 +89,8 @@
 
     <section class="card">
         <h2>Upload multiple HTML files</h2>
-        <form action="/personality/upload" method="post" enctype="multipart/form-data">
+        <form action="/api/personality/imports" method="post" enctype="multipart/form-data"
+              data-personality-import-form>
             <label for="htmlFiles">HTML files</label>
             <input id="htmlFiles" name="htmlFiles" type="file" multiple accept=".html,.htm,text/html">
             <label for="batchGuidance">Optional guidance for this batch</label>
@@ -96,6 +99,13 @@
             <p class="hint">A maximum of 50 files can be uploaded in one go. Each file is processed independently through the same HTML workflow. Up to 50 referenced media items per page are analysed; successful files are saved even if another file fails, and failures are listed by filename.</p>
             <button type="submit">Analyze HTML files</button>
         </form>
+    </section>
+
+    <section class="card">
+        <h2>Background imports</h2>
+        <div id="personality-import-jobs" role="log" aria-live="polite">
+            <p class="hint">Submitted imports continue if you close this page. Their status will be restored here when you return.</p>
+        </div>
     </section>
 
     <section class="card">
@@ -112,5 +122,6 @@
         </form>
     </section>
 </main>
+<script src="/personality.js" defer></script>
 </body>
 </html>

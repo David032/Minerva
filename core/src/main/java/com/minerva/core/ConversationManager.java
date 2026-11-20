@@ -264,7 +264,8 @@ public class ConversationManager {
         String basePrompt = resourceLoader.getResource("classpath:/prompts/BASE_PROMPT.md").getContentAsString(Charset.defaultCharset()) +
                 resourceLoader.getResource("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md").getContentAsString(Charset.defaultCharset());
         String personalityPrompt = new PersonalityPromptStore(FileManager.getInstance()).composeWith(basePrompt);
-        return new InterestMemoryStore(FileManager.getInstance()).appendScoredPreferences(personalityPrompt);
+        InterestMemoryStore memoryStore = new InterestMemoryStore(FileManager.getInstance());
+        return memoryStore.appendLongTermGoals(memoryStore.appendScoredPreferences(personalityPrompt));
     }
 
     /// <summary>

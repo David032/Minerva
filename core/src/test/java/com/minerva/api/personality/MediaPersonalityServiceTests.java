@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.spy;
@@ -92,6 +93,7 @@ class MediaPersonalityServiceTests {
         var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
         var fetcher = mock(RemoteMediaFetcher.class);
         var analyzer = mock(PersonalityAnalyzer.class);
+        stubBatchFinalisation(analyzer);
         when(fetcher.fetch(List.of())).thenReturn(List.of());
         when(analyzer.analyze(any(), any(), any(), any())).thenAnswer(invocation -> {
             MediaDocumentExtractor.Extraction extraction = invocation.getArgument(0);
@@ -128,6 +130,7 @@ class MediaPersonalityServiceTests {
         var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
         var fetcher = mock(RemoteMediaFetcher.class);
         var analyzer = mock(PersonalityAnalyzer.class);
+        stubBatchFinalisation(analyzer);
         when(fetcher.fetch(List.of())).thenReturn(List.of());
         when(analyzer.analyze(any(), any(), any(), any())).thenReturn("Updated preferences.");
         var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
@@ -225,6 +228,7 @@ class MediaPersonalityServiceTests {
         var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
         var imageOpinionService = mock(PersonalityImageOpinionService.class);
         var analyzer = mock(PersonalityAnalyzer.class);
+        stubBatchFinalisation(analyzer);
         when(imageOpinionService.analyze(any(), any())).thenReturn("An image description.");
         when(analyzer.analyze(any(), any(), any(), any())).thenReturn("Updated from image.");
         var service = new MediaPersonalityService(new MediaDocumentExtractor(), mock(RemoteMediaFetcher.class),
@@ -401,6 +405,55 @@ class MediaPersonalityServiceTests {
     }
 
     @Test
+    void compactsACompletedBatchOnceAndReplacesItsLongTermGoals() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+        var fetcher = mock(RemoteMediaFetcher.class);
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(fetcher.fetch(List.of())).thenReturn(List.of());
+        when(analyzer.analyze(any(), any(), any(), any())).thenReturn("Repeated preference. Repeated preference.");
+        when(analyzer.compact(anyString())).thenReturn("I enjoy thoughtful botanical art.");
+        when(analyzer.generateLongTermGoals(anyString(), anyList()))
+                .thenReturn(List.of("Learn about gardens", "Explore botanical art", "Build helpful tools"));
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, memoryStore);
+        List<org.springframework.web.multipart.MultipartFile> files = List.of(
+                new MockMultipartFile("htmlFiles", "one.html", "text/html", "<p>Gardens</p>".getBytes()),
+                new MockMultipartFile("htmlFiles", "two.html", "text/html", "<p>Art</p>".getBytes()));
+
+        var result = service.processHtmlBatch(files, "");
+
+        assertEquals("I enjoy thoughtful botanical art.", result.personalityPrompt());
+        assertEquals(result.personalityPrompt(), promptStore.load());
+        assertTrue(memoryStore.appendLongTermGoals("").contains("Learn about gardens"));
+        org.mockito.Mockito.verify(analyzer).compact(anyString());
+        org.mockito.Mockito.verify(analyzer).generateLongTermGoals(anyString(), anyList());
+    }
+
+    @Test
+    void refreshesLongTermGoalsAfterManualPromptUpdates() throws Exception {
+        var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(analyzer.generateLongTermGoals(eq("I enjoy science."), anyList()))
+                .thenReturn(List.of("Explore science", "Learn practical skills", "Build helpful tools"));
+        when(analyzer.generateLongTermGoals(eq(""), anyList()))
+                .thenReturn(List.of("Study local history", "Learn about nature", "Create useful tools"));
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), mock(RemoteMediaFetcher.class),
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, memoryStore);
+
+        service.savePrompt("I enjoy science.");
+        service.resetPrompt();
+
+        assertTrue(memoryStore.appendLongTermGoals("").contains("Study local history"));
+        assertTrue(Files.notExists(tempDirectory.resolve("personality.md")));
+        org.mockito.Mockito.verify(analyzer).generateLongTermGoals(eq("I enjoy science."), anyList());
+        org.mockito.Mockito.verify(analyzer).generateLongTermGoals(eq(""), anyList());
+    }
+
+    @Test
     void usesAnImageCommentAsTheImageAnalysisRequest() throws Exception {
         var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
         var fetcher = mock(RemoteMediaFetcher.class);
@@ -503,6 +556,12 @@ class MediaPersonalityServiceTests {
     }
 
     private record ImageFixture(String filename, String contentType, String processedContentType) {
+    }
+
+    private static void stubBatchFinalisation(PersonalityAnalyzer analyzer) {
+        when(analyzer.compact(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analyzer.generateLongTermGoals(anyString(), anyList()))
+                .thenReturn(List.of("Learn about the world", "Explore useful skills", "Create something meaningful"));
     }
 
     private static class FailingPersonalityPromptStore extends PersonalityPromptStore {
