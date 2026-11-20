@@ -2,6 +2,7 @@ package com.minerva.core;
 
 import com.minerva.utils.FileManager;
 import com.minerva.core.journiv.JournivService;
+import com.minerva.core.routines.RoutineRunner;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -33,7 +34,13 @@ class HeartbeatServiceTests {
     private final FileManager fileManager = mock(FileManager.class);
     private final HeartbeatAssistant assistant = mock(HeartbeatAssistant.class);
     private final JournivService journivService = mock(JournivService.class);
-    private final HeartbeatService service = new HeartbeatService(activityGate, fileManager, assistant, journivService);
+    private final RoutineRunner routineRunner = mock(RoutineRunner.class);
+    private final HeartbeatService service = new HeartbeatService(activityGate, fileManager, assistant, journivService, routineRunner);
+
+    @org.junit.jupiter.api.BeforeEach
+    void allowHeartbeat() {
+        when(routineRunner.runOne()).thenReturn(true);
+    }
 
     @Test
     void skipsTickWhileConversationIsActive() throws IOException {
@@ -46,9 +53,17 @@ class HeartbeatServiceTests {
         }
 
         verify(assistant, never()).run(eq("Check something"), any());
+        verify(routineRunner, never()).runOne();
         verify(journivService, never()).record(
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString(),
                 org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void skipsHeartbeatWhenRoutineIsStillRunning() {
+        when(routineRunner.runOne()).thenReturn(false);
+        assertTrue(service.runIfIdle());
+        verify(fileManager, never()).getHeartbeatFilePath();
     }
 
     @Test

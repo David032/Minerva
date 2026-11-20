@@ -5,6 +5,7 @@ import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.tools.BraveImageSearchTools;
 import com.minerva.core.reminders.ReminderTools;
+import com.minerva.core.routines.RoutineTools;
 import com.minerva.core.journiv.JournivService;
 import com.minerva.core.journiv.JournivTools;
 import com.minerva.api.personality.MediaPersonalityService;
@@ -88,6 +89,7 @@ public class ConversationManager {
     /// @param skillImportService service used to load and refresh imported skills.
     /// @param dateTimeTools date/time tools exposed to the assistant.
     /// @param reminderTools reminder tools exposed to the assistant.
+    /// @param routineTools recurring routine tools exposed to the assistant.
     /// @param rssTools RSS tools exposed to the assistant.
     /// @param personalityService personality image workflow exposed to the assistant.
     /// @param activityGate gate shared by foreground requests and the heartbeat.
@@ -101,6 +103,7 @@ public class ConversationManager {
             SkillImportService skillImportService,
             DateTimeTools dateTimeTools,
             ReminderTools reminderTools,
+            RoutineTools routineTools,
             RssTools rssTools,
             MediaPersonalityService personalityService,
             AiActivityGate activityGate,
@@ -163,6 +166,7 @@ public class ConversationManager {
                 new SkillImportTools(skillImportService),
                 dateTimeTools,
                 reminderTools,
+                routineTools,
                 rssTools,
                 personalityService
         };
