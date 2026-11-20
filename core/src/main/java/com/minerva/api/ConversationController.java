@@ -6,6 +6,7 @@ import com.minerva.core.reminders.ReminderTools;
 import com.minerva.core.routines.RoutineTools;
 import com.minerva.core.journiv.JournivService;
 import com.minerva.core.journiv.JournivTools;
+import com.minerva.core.personality.CustomizationTools;
 import com.minerva.api.personality.MediaPersonalityService;
 import com.minerva.api.library.MediaLibraryTools;
 import com.minerva.tools.DateTimeTools;
@@ -52,11 +53,13 @@ public class ConversationController {
             AiActivityGate activityGate,
             JournivService journivService,
             JournivTools journivTools,
+            CustomizationTools customizationTools,
             @Value("${minerva.tool-search.enabled:false}") boolean toolSearchEnabled
     ) throws IOException {
         ConversationManager.Initialize(
                 ai, sessionService, skillImportService, dateTimeTools, reminderTools, routineTools,
                 rssTools, mediaLibraryTools, personalityService, activityGate, journivService, journivTools,
+                customizationTools,
                 toolSearchEnabled
         );
         fileManager = FileManager.getInstance();

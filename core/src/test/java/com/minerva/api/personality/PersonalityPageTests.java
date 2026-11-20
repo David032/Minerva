@@ -8,6 +8,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
+import com.minerva.core.personality.CustomizationStore;
 
 import java.io.IOException;
 import java.util.List;
@@ -35,7 +36,15 @@ class PersonalityPageTests {
     private RemoteArticleFetcher articleFetcher;
 
     @MockitoBean
+    private CustomizationStore customizationStore;
+
+    @MockitoBean
     private JdbcChatMemoryRepository jdbcChatMemoryRepository;
+
+    @org.junit.jupiter.api.BeforeEach
+    void provideDefaultCustomisation() throws Exception {
+        when(customizationStore.load()).thenReturn(CustomizationStore.Preferences.defaults());
+    }
 
     @Test
     void rendersTheThymeleafUploadPage() throws Exception {
@@ -46,6 +55,14 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("multipart/form-data")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("/personality/upload")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Shape Minerva")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Speaking style")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"gothic\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"cyberpunk\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"futuristic\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"occult\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"grimdark\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"dark\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/about")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("imageUrl")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"imageFiles\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"zipFile\"")))
@@ -57,6 +74,24 @@ class PersonalityPageTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Optional image comment")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("maximum of 50 files")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("I enjoy quiet gardens.")));
+    }
+
+    @Test
+    void savesOnlyValidatedAppearanceAndSpeakingStyleSettings() throws Exception {
+        when(service.loadPrompt()).thenReturn("");
+        when(customizationStore.saveSettings("ocean", "wide", "serif", "formal"))
+                .thenReturn(new CustomizationStore.Preferences("ocean", "wide", "serif", "formal", "", ""));
+
+        mockMvc.perform(multipart("/personality/customization")
+                        .param("palette", "ocean")
+                        .param("layout", "wide")
+                        .param("typography", "serif")
+                        .param("speakingStyle", "formal"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Appearance and speaking style saved.")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("value=\"ocean\" selected")));
+
+        verify(customizationStore).saveSettings("ocean", "wide", "serif", "formal");
     }
 
     @Test

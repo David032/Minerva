@@ -14,6 +14,8 @@ import com.minerva.tools.RssTools;
 import com.minerva.skills.SkillImportService;
 import com.minerva.skills.SkillImportTools;
 import com.minerva.core.personality.PersonalityPromptStore;
+import com.minerva.core.personality.CustomizationStore;
+import com.minerva.core.personality.CustomizationTools;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
 import net.dv8tion.jda.api.JDABuilder;
@@ -112,6 +114,7 @@ public class ConversationManager {
             AiActivityGate activityGate,
             JournivService journivService,
             JournivTools journivTools,
+            CustomizationTools customizationTools,
             boolean toolSearchEnabled
     ) throws IOException {
         ConversationManager.activityGate = activityGate;
@@ -172,7 +175,8 @@ public class ConversationManager {
                 routineTools,
                 rssTools,
                 mediaLibraryTools,
-                personalityService
+                personalityService,
+                customizationTools
         };
         if (journivService.enabled()) {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
@@ -277,7 +281,8 @@ public class ConversationManager {
                 resourceLoader.getResource("classpath:/prompts/AUTO_MEMORY_TOOLS_SYSTEM_PROMPT.md").getContentAsString(Charset.defaultCharset());
         String personalityPrompt = new PersonalityPromptStore(FileManager.getInstance()).composeWith(basePrompt);
         InterestMemoryStore memoryStore = new InterestMemoryStore(FileManager.getInstance());
-        return memoryStore.appendLongTermGoals(memoryStore.appendScoredPreferences(personalityPrompt));
+        String withPreferences = memoryStore.appendLongTermGoals(memoryStore.appendScoredPreferences(personalityPrompt));
+        return new CustomizationStore(FileManager.getInstance()).appendSpeakingStyle(withPreferences);
     }
 
     /// <summary>

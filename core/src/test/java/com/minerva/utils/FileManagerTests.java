@@ -39,6 +39,7 @@ class FileManagerTests {
         var manager = new FileManager(root);
 
         assertEquals(root.resolve("heartbeat.md"), manager.getHeartbeatFilePath());
+        assertEquals(root.resolve("memories/heartbeat-memories.json"), manager.getHeartbeatMemoriesPath());
     }
 
     @Test

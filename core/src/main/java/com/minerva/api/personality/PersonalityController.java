@@ -1,9 +1,11 @@
 package com.minerva.api.personality;
 
+import com.minerva.core.personality.CustomizationStore;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
@@ -19,16 +21,28 @@ import java.util.List;
 public class PersonalityController {
     private final MediaPersonalityService service;
     private final RemoteArticleFetcher articleFetcher;
+    private final CustomizationStore customizationStore;
 
     /**
      * Creates the controller backed by the personality workflow service.
      *
      * @param service performs media analysis and persists personality preferences
      * @param articleFetcher retrieves and extracts public HTML articles
+     * @param customizationStore persists validated appearance and style preferences
      */
-    public PersonalityController(MediaPersonalityService service, RemoteArticleFetcher articleFetcher) {
+    public PersonalityController(
+            MediaPersonalityService service,
+            RemoteArticleFetcher articleFetcher,
+            CustomizationStore customizationStore
+    ) {
         this.service = service;
         this.articleFetcher = articleFetcher;
+        this.customizationStore = customizationStore;
+    }
+
+    @ModelAttribute
+    public void addCustomisation(Model model) throws IOException {
+        model.addAttribute("customization", customizationStore.load());
     }
 
     /**
@@ -259,6 +273,51 @@ public class PersonalityController {
         service.resetPrompt();
         model.addAttribute("personalityPrompt", "");
         model.addAttribute("success", "Personality prompt reset.");
+        return "personality";
+    }
+
+    /**
+     * Saves validated appearance and speaking-style preferences.
+     *
+     * @param palette selected colour palette
+     * @param layout selected content layout
+     * @param typography selected typeface
+     * @param speakingStyle selected speaking style
+     * @param model view model for feedback
+     * @return the personality template
+     * @throws IOException if preferences cannot be saved or reloaded
+     */
+    @PostMapping("/personality/customization")
+    public String saveCustomization(
+            @RequestParam String palette,
+            @RequestParam String layout,
+            @RequestParam String typography,
+            @RequestParam String speakingStyle,
+            Model model
+    ) throws IOException {
+        try {
+            model.addAttribute("customization",
+                    customizationStore.saveSettings(palette, layout, typography, speakingStyle));
+            model.addAttribute("success", "Appearance and speaking style saved.");
+        } catch (IllegalArgumentException | IOException e) {
+            model.addAttribute("error", e.getMessage());
+        }
+        model.addAttribute("personalityPrompt", service.loadPrompt());
+        return "personality";
+    }
+
+    /**
+     * Resets appearance and speaking-style preferences to their defaults.
+     *
+     * @param model view model for feedback
+     * @return the personality template
+     * @throws IOException if preferences cannot be reset or reloaded
+     */
+    @PostMapping("/personality/customization/reset")
+    public String resetCustomization(Model model) throws IOException {
+        model.addAttribute("customization", customizationStore.resetSettings());
+        model.addAttribute("success", "Appearance and speaking style reset.");
+        model.addAttribute("personalityPrompt", service.loadPrompt());
         return "personality";
     }
 
