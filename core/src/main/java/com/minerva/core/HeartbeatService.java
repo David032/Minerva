@@ -2,6 +2,7 @@ package com.minerva.core;
 
 import com.minerva.utils.FileManager;
 import com.minerva.core.journiv.JournivService;
+import com.minerva.core.routines.RoutineRunner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class HeartbeatService {
     private final FileManager fileManager;
     private final HeartbeatAssistant assistant;
     private final JournivService journivService;
+    private final RoutineRunner routineRunner;
 
     /**
      * Creates a heartbeat service.
@@ -30,17 +32,20 @@ public class HeartbeatService {
      * @param fileManager Minerva local data paths
      * @param assistant heartbeat-specific assistant operation
      * @param journivService optional Journiv activity recorder
+     * @param routineRunner executes one eligible managed routine
      */
     public HeartbeatService(
             AiActivityGate activityGate,
             FileManager fileManager,
             HeartbeatAssistant assistant,
-            JournivService journivService
+            JournivService journivService,
+            RoutineRunner routineRunner
     ) {
         this.activityGate = activityGate;
         this.fileManager = fileManager;
         this.assistant = assistant;
         this.journivService = journivService;
+        this.routineRunner = routineRunner;
     }
 
     /**
@@ -57,6 +62,9 @@ public class HeartbeatService {
     }
 
     private void runHeartbeat() {
+        if (!routineRunner.runOne()) {
+            return;
+        }
         var heartbeatPath = fileManager.getHeartbeatFilePath();
         String instructions;
         try {

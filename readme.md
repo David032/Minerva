@@ -28,6 +28,16 @@ Minerva can run a scheduled assistant check using instructions in `heartbeat.md`
 
 Application logs in the data directory's `logs` folder record heartbeat run IDs, tool names, whether calls returned or raised exceptions, and bounded tool results and assistant responses. **These logs can contain sensitive information**; restrict access to them. Tool inputs and direct memory-tool results are omitted, but other tool results or assistant responses may contain memory contents or secrets. A returned result is not necessarily a successful action. Memory tools and managed interests also log successful additions, updates, deletions and renames. Generic filesystem and shell operations can change memory files without producing memory-change events. Logs are not included in local backups.
 
+## Managed routines
+
+Ask Minerva to create, list, inspect, update, enable or disable a recurring routine, or to show its recent execution history. Definitions and outcomes are stored in PostgreSQL and included in database backups; they may contain sensitive information. Each enabled routine uses the existing heartbeat schedule, not an individual schedule. At most one routine is attempted per idle tick, choosing the least recently attempted first; busy ticks are skipped, not queued. Disabling the heartbeat also disables routine execution. A restart marks unfinished attempts interrupted rather than replaying them; the routine remains eligible on a later tick.
+
+The default limit is 50 routines, including disabled ones (`minerva.routines.max-count`, 1–1000). Names are limited to 200 characters and instructions to 4000. The assistant has up to 120 seconds per routine (`minerva.routines.timeout-seconds`, 1–600); timeouts and exceptions are recorded, and the latest 20 outcomes are available through the history tool. A successful outcome means the assistant returned a response, not that every requested action succeeded. The normal heartbeat is skipped on a routine timeout.
+
+Cancellation is cooperative: a timed-out tool or model call may ignore interruption and continue in the background, possibly overlapping a later foreground conversation. Further routines and heartbeats are skipped while that worker remains active. Routine timeouts do not bound the separate normal heartbeat, whose existing behaviour is unchanged. Use trusted, bounded instructions and tools.
+
+Run only one Minerva instance against a database: routine selection and restart recovery are not coordinated across instances. Execution history is retained without automatic deletion.
+
 ## Tool search
 
 Tool search is experimental and disabled by default. Set `MINERVA_TOOL_SEARCH_ENABLED=true` in the environment (or the Compose `.env` file) and restart Minerva to let the assistant and heartbeat discover tools on demand using a local keyword index. This can reduce the tool definitions sent to the model, but requires the configured model to search for and call tools reliably; keyword searches can also miss relevant tools. If tools stop working, set it to `false` and restart to restore the normal tool-calling path. Minerva does not automatically retry failed tool calls because a tool may already have performed an action.
