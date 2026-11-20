@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f2">
+    <title>Library | Minerva</title>
+    <link rel="stylesheet" th:href="@{/personality.css}">
+    <script th:src="@{/library.js}" defer></script>
+</head>
+<body>
+<main class="page">
+    <header class="header">
+        <div>
+            <p class="eyebrow">MINERVA · LIBRARY</p>
+            <h1>Library</h1>
+            <p class="intro">Manage the RSS feeds Minerva can read.</p>
+        </div>
+        <nav class="header-links">
+            <a href="/">Back to chat</a>
+        </nav>
+    </header>
+
+    <section class="card" aria-labelledby="rss-feed-heading">
+        <h2 id="rss-feed-heading">Add an RSS feed</h2>
+        <form id="rss-feed-form" action="/rss/addRssFeed" method="post">
+            <label for="rss-feed-title">Feed title</label>
+            <input id="rss-feed-title" name="title" type="text" required>
+            <label for="rss-feed-url">Feed URL</label>
+            <input id="rss-feed-url" name="url" type="url" required>
+            <button id="rss-feed-submit" type="submit">Add feed</button>
+        </form>
+        <p id="rss-feed-status" class="notice" role="status" aria-live="polite" hidden></p>
+    </section>
+</main>
+</body>
+</html>

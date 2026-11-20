@@ -41,7 +41,21 @@ class ChatPageTests {
                 .andExpect(content().string(containsString("id=\"attach-image-button\"")))
                 .andExpect(content().string(containsString("id=\"image-preview\"")))
                 .andExpect(content().string(containsString("href=\"/personality\"")))
+                .andExpect(content().string(containsString("href=\"/library\"")))
                 .andExpect(content().string(containsString("href=\"/chat.css\"")))
                 .andExpect(content().string(containsString("src=\"/chat.js\"")));
+    }
+
+    @Test
+    void rendersTheRSSLibraryPageAndFeedForm() throws Exception {
+        mockMvc.perform(get("/library"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("<title>Library | Minerva</title>")))
+                .andExpect(content().string(containsString("href=\"/\"")))
+                .andExpect(content().string(containsString("action=\"/rss/addRssFeed\"")))
+                .andExpect(content().string(containsString("name=\"title\"")))
+                .andExpect(content().string(containsString("name=\"url\"")))
+                .andExpect(content().string(containsString("id=\"rss-feed-status\"")))
+                .andExpect(content().string(containsString("src=\"/library.js\"")));
     }
 }
