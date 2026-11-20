@@ -3,9 +3,12 @@ package com.minerva.api;
 import com.minerva.core.ConversationManager;
 import com.minerva.core.AiActivityGate;
 import com.minerva.core.reminders.ReminderTools;
+import com.minerva.core.routines.RoutineTools;
 import com.minerva.core.journiv.JournivService;
 import com.minerva.core.journiv.JournivTools;
+import com.minerva.core.personality.CustomizationTools;
 import com.minerva.api.personality.MediaPersonalityService;
+import com.minerva.api.library.MediaLibraryTools;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.tools.RssTools;
 import com.minerva.skills.SkillImportService;
@@ -43,16 +46,21 @@ public class ConversationController {
             SkillImportService skillImportService,
             DateTimeTools dateTimeTools,
             ReminderTools reminderTools,
+            RoutineTools routineTools,
             RssTools rssTools,
+            MediaLibraryTools mediaLibraryTools,
             MediaPersonalityService personalityService,
             AiActivityGate activityGate,
             JournivService journivService,
             JournivTools journivTools,
+            CustomizationTools customizationTools,
             @Value("${minerva.tool-search.enabled:false}") boolean toolSearchEnabled
     ) throws IOException {
         ConversationManager.Initialize(
-                ai, sessionService, skillImportService, dateTimeTools, reminderTools,
-                rssTools, personalityService, activityGate, journivService, journivTools, toolSearchEnabled
+                ai, sessionService, skillImportService, dateTimeTools, reminderTools, routineTools,
+                rssTools, mediaLibraryTools, personalityService, activityGate, journivService, journivTools,
+                customizationTools,
+                toolSearchEnabled
         );
         fileManager = FileManager.getInstance();
         conversation = new ConversationOperations() {

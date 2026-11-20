@@ -27,6 +27,7 @@ class FileManagerTests {
         var manager = new FileManager(tempDirectory.resolve("MinervaOS"));
 
         assertTrue(Files.isDirectory(Path.of(manager.getDirectoryPath(Directory.UPLOADS))));
+        assertTrue(Files.isDirectory(Path.of(manager.getDirectoryPath(Directory.LIBRARY))));
         assertTrue(Files.isDirectory(Path.of(manager.getDirectoryPath(Directory.SKILLS))));
         assertTrue(Files.isDirectory(Path.of(manager.getDirectoryPath(Directory.MEMORIES))));
         assertTrue(Files.isDirectory(Path.of(manager.getDirectoryPath(Directory.LOGS))));
@@ -38,6 +39,7 @@ class FileManagerTests {
         var manager = new FileManager(root);
 
         assertEquals(root.resolve("heartbeat.md"), manager.getHeartbeatFilePath());
+        assertEquals(root.resolve("memories/heartbeat-memories.json"), manager.getHeartbeatMemoriesPath());
     }
 
     @Test

@@ -10,7 +10,7 @@
     </parent>
     <groupId>com.minerva</groupId>
     <artifactId>Minerva</artifactId>
-    <version>0.4.2-SNAPSHOT</version>
+    <version>0.4.3-SNAPSHOT</version>
     <name>Minerva</name>
     <description>Minerva</description>
     <url/>
@@ -110,7 +110,7 @@
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
-            <version>1.23.2</version>
+            <version>1.24.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>

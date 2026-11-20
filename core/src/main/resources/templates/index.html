@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#f5f5f2">
     <title>Minerva Chat</title>
     <link rel="stylesheet" th:href="@{/chat.css}">
+    <script th:src="@{/customization.js}" defer></script>
     <script th:src="@{/chat.js}" defer></script>
 </head>
 <body>
@@ -16,8 +17,12 @@
             <h1>Minerva</h1>
             <p>Your local assistant</p>
         </div>
-        <a th:href="@{/personality}">Customize personality</a>
-        <a th:href="@{/skills}">Import skills</a>
+        <nav class="chat-links" aria-label="Minerva pages">
+            <a th:href="@{/personality}">Customize</a>
+            <a th:href="@{/about}">About</a>
+            <a th:href="@{/skills}">Skills</a>
+            <a th:href="@{/library}">Library</a>
+        </nav>
     </header>
 
     <section id="reminders" class="reminders" aria-labelledby="reminders-heading">
