@@ -7,7 +7,7 @@
     <title>Personality | Minerva</title>
     <link rel="stylesheet" href="/personality.css">
 </head>
-<body>
+<body th:attr="data-palette=${customization.palette},data-layout=${customization.layout},data-typography=${customization.typography}">
 <main class="page">
     <header class="header">
         <div>
@@ -16,6 +16,7 @@
             <p class="intro">Share a PDF, HTML page, or image so Minerva can learn from its content and your guidance.</p>
         </div>
         <nav class="header-links">
+            <a href="/about">About Minerva</a>
             <a href="/personality/interests">Manage interests</a>
             <a href="/">Back to chat</a>
         </nav>
@@ -23,6 +24,43 @@
 
     <p class="notice success" role="status" th:if="${success}" th:text="${success}"></p>
     <p class="notice error" role="alert" th:if="${error}" th:text="${error}"></p>
+
+    <section class="card">
+        <h2>Appearance and speaking style</h2>
+        <p class="hint">Minerva can make these bounded changes as its personality develops. Settings are saved locally and can be reset here.</p>
+        <form action="/personality/customization" method="post">
+            <label for="palette">Colour palette</label>
+            <select id="palette" name="palette">
+                <option value="forest" th:selected="${customization.palette == 'forest'}">Forest</option>
+                <option value="ocean" th:selected="${customization.palette == 'ocean'}">Ocean</option>
+                <option value="rose" th:selected="${customization.palette == 'rose'}">Rose</option>
+                <option value="midnight" th:selected="${customization.palette == 'midnight'}">Midnight</option>
+            </select>
+            <label for="layout">Layout</label>
+            <select id="layout" name="layout">
+                <option value="compact" th:selected="${customization.layout == 'compact'}">Compact</option>
+                <option value="comfortable" th:selected="${customization.layout == 'comfortable'}">Comfortable</option>
+                <option value="wide" th:selected="${customization.layout == 'wide'}">Wide</option>
+            </select>
+            <label for="typography">Typography</label>
+            <select id="typography" name="typography">
+                <option value="system" th:selected="${customization.typography == 'system'}">System sans-serif</option>
+                <option value="serif" th:selected="${customization.typography == 'serif'}">Serif</option>
+                <option value="mono" th:selected="${customization.typography == 'mono'}">Monospaced</option>
+            </select>
+            <label for="speakingStyle">Speaking style</label>
+            <select id="speakingStyle" name="speakingStyle">
+                <option value="warm" th:selected="${customization.speakingStyle == 'warm'}">Warm</option>
+                <option value="direct" th:selected="${customization.speakingStyle == 'direct'}">Direct</option>
+                <option value="playful" th:selected="${customization.speakingStyle == 'playful'}">Playful</option>
+                <option value="formal" th:selected="${customization.speakingStyle == 'formal'}">Formal</option>
+            </select>
+            <div class="actions">
+                <button type="submit">Save settings</button>
+                <button class="secondary" type="submit" formaction="/personality/customization/reset">Reset settings</button>
+            </div>
+        </form>
+    </section>
 
     <section class="card">
         <h2>Learn from media</h2>
@@ -123,5 +161,6 @@
     </section>
 </main>
 <script src="/personality.js" defer></script>
+<script src="/customization.js" defer></script>
 </body>
 </html>

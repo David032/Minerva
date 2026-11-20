@@ -87,8 +87,10 @@ public class MinervaApiTests {
                     Assertions.assertTrue(body.contains("id=\"message-form\""));
                     Assertions.assertTrue(body.contains("id=\"message-input\""));
                     Assertions.assertTrue(body.contains("Customize personality"));
+                    Assertions.assertTrue(body.contains("/about"));
                     Assertions.assertTrue(body.contains("/chat.css"));
                     Assertions.assertTrue(body.contains("/chat.js"));
+                    Assertions.assertTrue(body.contains("/customization.js"));
                 });
 
         restTestClient.get().uri("/chat.js")

@@ -237,6 +237,24 @@ public class FileManager {
     }
 
     /**
+     * Gets the local heartbeat history file path.
+     *
+     * @return path to {@code heartbeat-memories.json} in the memories directory
+     */
+    public Path getHeartbeatMemoriesPath() {
+        return memoriesPath.resolve("heartbeat-memories.json");
+    }
+
+    /**
+     * Gets the local user-facing customization preferences path.
+     *
+     * @return path to {@code customization.json} in the memories directory
+     */
+    public Path getCustomizationPath() {
+        return memoriesPath.resolve("customization.json");
+    }
+
+    /**
      * Creates the application default heartbeat when personality and interest data are available.
      *
      * <p>An existing heartbeat file is never replaced.</p>

@@ -143,6 +143,7 @@ form.addEventListener("submit", async (event) => {
         }
 
         addMessage(await response.text(), "assistant");
+        await window.applyMinervaCustomization?.();
         status.textContent = "";
     } catch (error) {
         status.classList.add("error");

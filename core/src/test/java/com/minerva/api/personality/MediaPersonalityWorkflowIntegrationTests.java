@@ -1,6 +1,7 @@
 package com.minerva.api.personality;
 
 import com.minerva.core.personality.PersonalityPromptStore;
+import com.minerva.core.personality.CustomizationStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -132,7 +133,8 @@ class MediaPersonalityWorkflowIntegrationTests {
         templateEngine.setTemplateResolver(templateResolver);
         ThymeleafViewResolver viewResolver = new ThymeleafViewResolver();
         viewResolver.setTemplateEngine(templateEngine);
-        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(service, articleFetcher))
+        mockMvc = MockMvcBuilders.standaloneSetup(new PersonalityController(
+                        service, articleFetcher, new CustomizationStore(tempDirectory.resolve("customization.json"))))
                 .setViewResolvers(viewResolver)
                 .build();
     }

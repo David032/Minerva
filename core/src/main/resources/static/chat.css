@@ -73,6 +73,20 @@ body {
     margin-top: 3px;
 }
 
+.chat-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px 12px;
+    margin-left: auto;
+    font-size: 12px;
+}
+
+.chat-links a {
+    color: #405d4b;
+    text-decoration: none;
+}
+
 .reminders {
     padding: 14px 24px;
     border-bottom: 1px solid #eeefeb;
@@ -341,6 +355,141 @@ body {
 @media (max-width: 520px) {
     body {
         padding: 0;
+    }
+}
+
+body[data-palette="forest"] {
+    --page-colour: #f5f5f2;
+    --surface-colour: #fff;
+    --text-colour: #242623;
+    --muted-colour: #777c75;
+    --border-colour: #e6e7e2;
+    --accent-colour: #405d4b;
+    --accent-hover: #314a3a;
+    --soft-colour: #f1f2ee;
+    --button-text: #fff;
+}
+
+body[data-palette="ocean"] {
+    --page-colour: #eef5f8;
+    --surface-colour: #fff;
+    --text-colour: #1d2b33;
+    --muted-colour: #526b79;
+    --border-colour: #d3e2e8;
+    --accent-colour: #25647e;
+    --accent-hover: #1d5066;
+    --soft-colour: #e2eff4;
+    --button-text: #fff;
+}
+
+body[data-palette="rose"] {
+    --page-colour: #fbf1f2;
+    --surface-colour: #fff;
+    --text-colour: #38252b;
+    --muted-colour: #775c64;
+    --border-colour: #ecd9dd;
+    --accent-colour: #9b5065;
+    --accent-hover: #7d3e50;
+    --soft-colour: #f5e5e9;
+    --button-text: #fff;
+}
+
+body[data-palette="midnight"] {
+    color-scheme: dark;
+    --page-colour: #171b24;
+    --surface-colour: #232a35;
+    --text-colour: #edf1f7;
+    --muted-colour: #b7c1d0;
+    --border-colour: #3a4556;
+    --accent-colour: #8caee8;
+    --accent-hover: #abc2ee;
+    --soft-colour: #2e3948;
+    --button-text: #182132;
+}
+
+body[data-palette] {
+    color: var(--text-colour);
+    background: var(--page-colour);
+}
+
+body[data-palette] .chat,
+body[data-palette] .composer,
+body[data-palette] .reminder-form input {
+    color: var(--text-colour);
+    background: var(--surface-colour);
+    border-color: var(--border-colour);
+}
+
+body[data-palette] .chat-header,
+body[data-palette] .reminders {
+    border-color: var(--border-colour);
+}
+
+body[data-palette] .chat-header p,
+body[data-palette] .status,
+body[data-palette] .image-preview,
+body[data-palette] #reminder-status {
+    color: var(--muted-colour);
+}
+
+body[data-palette] .chat-header a,
+body[data-palette] .image-preview button {
+    color: var(--accent-colour);
+}
+
+body[data-palette] .brand-mark,
+body[data-palette] .message.user,
+body[data-palette] .composer button {
+    color: var(--button-text);
+    background: var(--accent-colour);
+}
+
+body[data-palette] .message.assistant,
+body[data-palette] .reminders button,
+body[data-palette] .composer .attach-button {
+    color: var(--text-colour);
+    background: var(--soft-colour);
+    border-color: var(--border-colour);
+}
+
+body[data-palette] .composer button:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+body[data-layout="compact"] .chat {
+    width: min(100%, 640px);
+}
+
+body[data-layout="wide"] .chat {
+    width: min(100%, 1080px);
+}
+
+body[data-layout="compact"] .conversation {
+    gap: 12px;
+    padding: 20px;
+}
+
+body[data-layout="wide"] .conversation {
+    padding-right: 40px;
+    padding-left: 40px;
+}
+
+body[data-typography="serif"] {
+    font-family: Georgia, "Times New Roman", serif;
+}
+
+body[data-typography="mono"] {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+@media (max-width: 520px) {
+    .chat-header {
+        flex-wrap: wrap;
+    }
+
+    .chat-links {
+        width: 100%;
+        justify-content: space-between;
     }
 
     .chat {

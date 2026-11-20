@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
+import java.time.Instant;
 
 /**
  * Loads and executes the user-configured heartbeat instructions when Minerva is idle.
@@ -24,6 +25,7 @@ public class HeartbeatService {
     private final HeartbeatAssistant assistant;
     private final JournivService journivService;
     private final RoutineRunner routineRunner;
+    private final HeartbeatMemoryStore heartbeatMemoryStore;
 
     /**
      * Creates a heartbeat service.
@@ -33,19 +35,22 @@ public class HeartbeatService {
      * @param assistant heartbeat-specific assistant operation
      * @param journivService optional Journiv activity recorder
      * @param routineRunner executes one eligible managed routine
+     * @param heartbeatMemoryStore persists local heartbeat history
      */
     public HeartbeatService(
             AiActivityGate activityGate,
             FileManager fileManager,
             HeartbeatAssistant assistant,
             JournivService journivService,
-            RoutineRunner routineRunner
+            RoutineRunner routineRunner,
+            HeartbeatMemoryStore heartbeatMemoryStore
     ) {
         this.activityGate = activityGate;
         this.fileManager = fileManager;
         this.assistant = assistant;
         this.journivService = journivService;
         this.routineRunner = routineRunner;
+        this.heartbeatMemoryStore = heartbeatMemoryStore;
     }
 
     /**
@@ -85,15 +90,35 @@ public class HeartbeatService {
 
         HeartbeatRun run = new HeartbeatRun();
         logger.info("Heartbeat run={} started", run.id());
+        String result;
         try {
-            String result = assistant.run(instructions, run);
-            journivService.record("heartbeat", "", result);
-            logger.info("Heartbeat run={} completed actions={} responseCharacters={} response={}", run.id(),
-                    run.actionCount(), result == null ? 0 : result.length(), ActivityLogText.bounded(result));
+            result = assistant.run(instructions, run);
         } catch (RuntimeException exception) {
+            recordFailure(run, exception);
             logger.error("Heartbeat run={} failed actions={} type={}", run.id(), run.actionCount(),
                     exception.getClass().getSimpleName());
             throw exception;
+        }
+        try {
+            heartbeatMemoryStore.append(Instant.now(), "SUCCEEDED", run.actionCount(),
+                    result == null || result.isBlank() ? "<empty>" : result);
+        } catch (IOException | RuntimeException exception) {
+            journivService.record("heartbeat", "", result);
+            logger.error("Heartbeat run={} failed to persist its local history.", run.id(), exception);
+            throw new IllegalStateException("Could not persist heartbeat history.", exception);
+        }
+        journivService.record("heartbeat", "", result);
+        logger.info("Heartbeat run={} completed actions={} responseCharacters={} response={}", run.id(),
+                run.actionCount(), result == null ? 0 : result.length(), ActivityLogText.bounded(result));
+    }
+
+    private void recordFailure(HeartbeatRun run, RuntimeException failure) {
+        try {
+            heartbeatMemoryStore.append(Instant.now(), "FAILED", run.actionCount(),
+                    failure.getClass().getSimpleName());
+        } catch (IOException | RuntimeException historyFailure) {
+            failure.addSuppressed(historyFailure);
+            logger.error("Could not persist failed heartbeat history for run={}.", run.id(), historyFailure);
         }
     }
 }

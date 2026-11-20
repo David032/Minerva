@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5f2">
+    <title>About Minerva</title>
+    <link rel="stylesheet" href="/personality.css">
+</head>
+<body th:attr="data-palette=${customization.palette},data-layout=${customization.layout},data-typography=${customization.typography}">
+<main class="page" th:attr="data-about-source-digest=${about.biographySourceDigest}">
+    <header class="header">
+        <div>
+            <p class="eyebrow">MINERVA · ABOUT</p>
+            <h1>About Minerva</h1>
+            <p class="intro">A changing portrait based on Minerva's personality, interests, and recent activity.</p>
+        </div>
+        <nav class="header-links">
+            <a href="/personality">Customize personality</a>
+            <a href="/">Back to chat</a>
+        </nav>
+    </header>
+
+    <p class="notice success" role="status" th:if="${success}" th:text="${success}"></p>
+    <p class="notice error" role="alert" th:if="${error}" th:text="${error}"></p>
+    <p class="notice" role="status" th:if="${about.refreshPending}">
+        The biography will refresh automatically when the current AI task finishes.
+    </p>
+
+    <section class="card">
+        <h2>My story</h2>
+        <p class="hint" th:if="${#strings.isEmpty(about.biography)}">
+            Minerva will write its biography as personality and activity data become available.
+        </p>
+        <form action="/about/biography" method="post">
+            <label class="visually-hidden" for="biography">About Minerva biography</label>
+            <textarea id="biography" name="biography" rows="8" maxlength="2000"
+                      th:text="${about.biography}"></textarea>
+            <p class="hint">The biography is regenerated when its source data changes; regeneration can replace manual edits.</p>
+            <button type="submit">Save biography</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <h2>Interests</h2>
+        <p class="hint" th:if="${#lists.isEmpty(about.interests)}">No interests saved yet.</p>
+        <ul class="about-list" th:unless="${#lists.isEmpty(about.interests)}">
+            <li th:each="interest : ${about.interests}"
+                th:text="${interest.keyword + ' (' + interest.score + '/5)'}"></li>
+        </ul>
+    </section>
+
+    <section class="card">
+        <h2>Recent heartbeat activity</h2>
+        <p class="hint" th:if="${#lists.isEmpty(about.recentActivity)}">No heartbeat activity saved yet.</p>
+        <ul class="about-list" th:unless="${#lists.isEmpty(about.recentActivity)}">
+            <li th:each="entry : ${about.recentActivity}">
+                <strong th:text="${entry.status + ' · ' + entry.occurredAt}"></strong>
+                <span th:text="${entry.outcome}"></span>
+            </li>
+        </ul>
+    </section>
+
+    <section class="card">
+        <h2>Media I like</h2>
+        <p class="hint" th:if="${#lists.isEmpty(about.likedMedia)}">No media has been selected for Minerva's library yet.</p>
+        <ul class="about-list" th:unless="${#lists.isEmpty(about.likedMedia)}">
+            <li th:each="item : ${about.likedMedia}">
+                <strong th:text="${item.title}"></strong>
+                <span th:text="${item.curationReason}"></span>
+            </li>
+        </ul>
+    </section>
+</main>
+<script src="/customization.js" defer></script>
+<script src="/about.js" defer></script>
+</body>
+</html>
