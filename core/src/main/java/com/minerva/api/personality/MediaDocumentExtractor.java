@@ -33,9 +33,23 @@ public class MediaDocumentExtractor {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Choose a non-empty PDF or HTML file.");
         }
-        String filename = file.getOriginalFilename();
+        return extract(file.getOriginalFilename(), file.getBytes());
+    }
+
+    /**
+     * Extracts content from a supported document held in memory.
+     *
+     * @param filename document filename used to identify its format
+     * @param bytes document content
+     * @return extracted text, tags, media URLs, and image alt text
+     * @throws IllegalArgumentException if the content is empty, invalid, or unsupported
+     * @throws IOException if a valid PDF cannot be read
+     */
+    public Extraction extract(String filename, byte[] bytes) throws IOException {
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("Choose a non-empty PDF or HTML file.");
+        }
         String extension = filename == null ? "" : filename.substring(filename.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
-        byte[] bytes = file.getBytes();
         if (extension.equals("pdf")) {
             if (!startsWith(bytes, "%PDF-")) {
                 throw new IllegalArgumentException("The uploaded file is not a valid PDF.");

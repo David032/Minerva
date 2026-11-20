@@ -1,6 +1,7 @@
 package com.minerva.core;
 
 import com.minerva.api.personality.InterestMemoryStore;
+import com.minerva.api.library.MediaLibraryTools;
 import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
 import com.minerva.tools.BraveImageSearchTools;
@@ -91,6 +92,7 @@ public class ConversationManager {
     /// @param reminderTools reminder tools exposed to the assistant.
     /// @param routineTools recurring routine tools exposed to the assistant.
     /// @param rssTools RSS tools exposed to the assistant.
+    /// @param mediaLibraryTools curated media-library tools exposed to the assistant.
     /// @param personalityService personality image workflow exposed to the assistant.
     /// @param activityGate gate shared by foreground requests and the heartbeat.
     /// @param journivService activity recorder for the optional Journiv integration.
@@ -105,6 +107,7 @@ public class ConversationManager {
             ReminderTools reminderTools,
             RoutineTools routineTools,
             RssTools rssTools,
+            MediaLibraryTools mediaLibraryTools,
             MediaPersonalityService personalityService,
             AiActivityGate activityGate,
             JournivService journivService,
@@ -168,6 +171,7 @@ public class ConversationManager {
                 reminderTools,
                 routineTools,
                 rssTools,
+                mediaLibraryTools,
                 personalityService
         };
         if (journivService.enabled()) {

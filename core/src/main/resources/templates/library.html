@@ -14,7 +14,7 @@
         <div>
             <p class="eyebrow">MINERVA · LIBRARY</p>
             <h1>Library</h1>
-            <p class="intro">Manage the RSS feeds Minerva can read.</p>
+            <p class="intro">Manage RSS feeds and the media Minerva chooses to keep.</p>
         </div>
         <nav class="header-links">
             <a href="/">Back to chat</a>
@@ -31,6 +31,29 @@
             <button id="rss-feed-submit" type="submit">Add feed</button>
         </form>
         <p id="rss-feed-status" class="notice" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <section class="card" aria-labelledby="media-library-heading">
+        <h2 id="media-library-heading">Add media for Minerva to consider</h2>
+        <p class="hint">Submit one public PDF, webpage, image, or video URL, or upload one PDF, HTML, or JPEG, PNG, GIF, or WebP image. Minerva keeps only candidates it selects based on its saved interests. Public links cannot target private or local networks.</p>
+        <form id="media-candidate-form" action="/api/library" method="post" enctype="multipart/form-data">
+            <label for="media-url">Public media URL</label>
+            <input id="media-url" name="url" type="url" maxlength="2048"
+                   placeholder="https://example.com/article">
+            <label for="media-file">Or upload a PDF, HTML, or image</label>
+            <input id="media-file" name="file" type="file"
+                   accept=".pdf,.html,.htm,.jpg,.jpeg,.png,.gif,.webp,application/pdf,text/html,image/jpeg,image/png,image/gif,image/webp">
+            <p class="hint">PDF and HTML uploads may be up to 20 MB; images may be up to 5 MB. Remote PDFs may be up to 20 MB, articles 2 MB, and remote media 5 MB per item.</p>
+            <button id="media-candidate-submit" type="submit">Ask Minerva to consider it</button>
+        </form>
+        <p id="media-candidate-status" class="notice" role="status" aria-live="polite" hidden></p>
+    </section>
+
+    <section class="card" aria-labelledby="media-library-items-heading">
+        <h2 id="media-library-items-heading">Minerva's media library</h2>
+        <p id="media-library-empty" class="hint">Loading saved media…</p>
+        <div id="media-library-items" aria-live="polite"></div>
+        <p id="media-library-status" class="notice" role="status" aria-live="polite" hidden></p>
     </section>
 </main>
 </body>
