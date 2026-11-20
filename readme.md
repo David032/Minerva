@@ -12,6 +12,14 @@ Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide 
 
 The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyse referenced videos.
 
+## Interest media library
+
+Open `/library` to manage RSS feeds and Minerva's AI-curated media library together. Submit one public PDF, HTML article, image, or video URL, or upload one PDF, HTML file, or JPEG, PNG, GIF, or WebP image. Minerva evaluates each candidate against its saved interests and personality preferences; rejected candidates are not retained. Minerva can also consider public URLs and retrieve or remove saved items with its media-library tools.
+
+The REST API accepts `multipart/form-data` at `POST /api/library` with exactly one `url` or `file` field. An accepted candidate returns HTTP 201 and its item metadata; a rejected candidate returns HTTP 200 with `accepted: false` and a reason; remote download failures return HTTP 502 with an error message. Use `GET /api/library` to list items, `GET /api/library/{id}` for metadata and extracted text, `GET /api/library/{id}/content` to download saved content, and `DELETE /api/library/{id}` to remove an item.
+
+PDF uploads and public PDF URLs are limited to 20 MB; public PDF URLs must end in `.pdf`. HTML uploads are limited to 20 MB, and public HTML articles to 2 MB. Uploaded images and remotely fetched media are limited to 5 MB each. HTML documents can reference at most 50 public media items with a 20 MB combined limit; no more than 12 prepared images or video frames are sent to the model at once. URLs are limited to 2,048 characters and must use public HTTP(S) destinations on standard ports; private-network addresses and redirects are not allowed. The library stores accepted files and provenance under `library` in Minerva's persistent data directory. Local backups include this directory.
+
 ## Skills
 
 Open `/skills` to import a ZIP archive or a public HTTPS ZIP/Git repository. Sources may contain a skill at the root or multiple nested skill directories. Each skill's `SKILL.md` must have `name` and `description` fields in YAML front matter. ZIP uploads are limited to 10 MB; imports reject unsafe archives, local/private network URLs, and name collisions without replacing existing skills. Imported skills are made available to Minerva immediately. Git repository imports require `git` on `PATH`; the Docker image includes it.
@@ -81,7 +89,7 @@ The logging advisor records the current user message and completed assistant res
 
 ## Local backup and restore
 
-Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, `personality.md`, and `heartbeat.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.
+Backups are local ZIP archives and are never uploaded or synced. The archive contains a PostgreSQL custom-format dump (including conversation/session and chat-memory tables) and user-managed `skills`, `memories`, the `library` media collection, `personality.md`, and `heartbeat.md` data. Logs, temporary uploads, Ollama models, `.env` values, and database credentials are excluded. The archive has a versioned manifest and SHA-256 checksums.
 
 With the Compose stack running, create a backup at a path outside the repository:
 
