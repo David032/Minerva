@@ -3,6 +3,7 @@ package com.minerva.core;
 import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.discord.DiscordListener;
 import com.minerva.tools.DateTimeTools;
+import com.minerva.tools.BraveImageSearchTools;
 import com.minerva.core.reminders.ReminderTools;
 import com.minerva.core.journiv.JournivService;
 import com.minerva.core.journiv.JournivTools;
@@ -170,9 +171,12 @@ public class ConversationManager {
             activeTools[activeTools.length - 1] = journivTools;
         }
         if (System.getenv("BRAVE_API_KEY") != null) {
-            activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
-            activeTools[activeTools.length - 1] =
-                    BraveWebSearchTool.builder(System.getenv("BRAVE_API_KEY")).resultCount(15).build();
+            String braveApiKey = System.getenv("BRAVE_API_KEY");
+            int currentToolCount = activeTools.length;
+            activeTools = Arrays.copyOf(activeTools, currentToolCount + 2);
+            activeTools[currentToolCount] =
+                    BraveWebSearchTool.builder(braveApiKey).resultCount(15).build();
+            activeTools[currentToolCount + 1] = new BraveImageSearchTools(braveApiKey);
         }
         skillImportService.setSkillChangeListener(ConversationManager::refreshSkills);
         refreshSkills();
