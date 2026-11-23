@@ -34,6 +34,7 @@ services:
       IO_USERNAME: ${IO_KEY:?Set IO_USERNAME in .env}
       BRAVE_API_KEY: ${BRAVE_API_KEY:? Set BRAVE_API_KEY in .env}
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      MINERVA_TOOL_SEARCH_ENABLED: True
     volumes:
       - core-tmp:/tmp
       - core-data:/MinervaOS
