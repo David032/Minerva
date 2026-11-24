@@ -156,7 +156,7 @@ public class PersonalityImportJobService {
     /**
      * Redispatches queued jobs if the executor was temporarily unavailable.
      */
-    @Scheduled(fixedDelayString = "${minerva.personality.import-poll-interval:1000}")
+    @Scheduled(fixedDelayString = "${minerva.personality.import-poll-interval:10000}")
     public void dispatchQueuedJobs() {
         List<PersonalityImportJob> jobs = repository.findAllByStatusInOrderByCreatedAtAsc(
                 List.of(PersonalityImportJobStatus.QUEUED));
