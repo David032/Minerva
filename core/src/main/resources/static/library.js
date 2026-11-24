@@ -8,6 +8,12 @@
     const mediaItems = document.getElementById("media-library-items");
     const mediaEmpty = document.getElementById("media-library-empty");
     const mediaListStatus = document.getElementById("media-library-status");
+    const previousPage = document.getElementById("media-library-previous");
+    const nextPage = document.getElementById("media-library-next");
+    let pageCursors = [null];
+    let pageIndex = 0;
+    let nextCursor = null;
+    let activeListRequest = 0;
 
     rssForm.addEventListener("submit", async event => {
         event.preventDefault();
@@ -53,7 +59,7 @@
             showStatus(mediaStatus,
                 result.accepted ? `Added to the library: ${result.reason}` : `Not added: ${result.reason}`,
                 result.accepted ? "success" : "");
-            await loadMediaItems();
+            await loadMediaItems([null], 0);
         } catch (error) {
             showStatus(mediaStatus, errorMessage(error, "Could not submit the media candidate. Please try again."), "error");
         } finally {
@@ -61,28 +67,58 @@
         }
     });
 
-    async function loadMediaItems() {
+    async function loadMediaItems(cursors = pageCursors, index = pageIndex) {
+        const requestId = ++activeListRequest;
+        previousPage.disabled = true;
+        nextPage.disabled = true;
         try {
-            const response = await fetch("/api/library");
+            const parameters = new URLSearchParams({ limit: "20" });
+            if (cursors[index] !== null) {
+                parameters.set("cursor", cursors[index]);
+            }
+            const response = await fetch(`/api/library/page?${parameters}`);
             if (!response.ok) {
                 throw new Error(await responseError(response, "Could not load the media library."));
             }
-            const items = await response.json();
+            const page = await response.json();
+            if (requestId !== activeListRequest) {
+                return;
+            }
+            pageCursors = cursors;
+            pageIndex = index;
+            nextCursor = page.nextCursor;
             mediaItems.replaceChildren();
-            if (items.length === 0) {
-                mediaEmpty.textContent = "No media has been selected yet.";
+            if (page.items.length === 0) {
+                mediaEmpty.textContent = pageIndex === 0
+                    ? "No media has been selected yet."
+                    : "No media remains on this page.";
                 mediaEmpty.hidden = false;
                 return;
             }
             mediaEmpty.hidden = true;
-            for (const item of items) {
+            for (const item of page.items) {
                 mediaItems.append(createMediaRow(item));
             }
         } catch (error) {
-            mediaEmpty.hidden = true;
-            showStatus(mediaListStatus, errorMessage(error, "Could not load the media library."), "error");
+            if (requestId === activeListRequest) {
+                showStatus(mediaListStatus, errorMessage(error, "Could not load the media library."), "error");
+            }
+        } finally {
+            if (requestId === activeListRequest) {
+                previousPage.disabled = pageIndex === 0;
+                nextPage.disabled = !nextCursor;
+            }
         }
     }
+
+    previousPage.addEventListener("click", () => void loadMediaItems(pageCursors, pageIndex - 1));
+    nextPage.addEventListener("click", () => {
+        if (nextCursor) {
+            const cursors = pageCursors.slice(0, pageIndex + 1);
+            cursors.push(nextCursor);
+            void loadMediaItems(cursors, pageIndex + 1);
+        }
+    });
 
     function createMediaRow(item) {
         const section = document.createElement("section");
@@ -121,7 +157,7 @@
                     throw new Error(await responseError(response, "Could not remove the media item."));
                 }
                 showStatus(mediaListStatus, "Media item removed.", "success");
-                await loadMediaItems();
+                await loadMediaItems([null], 0);
             } catch (error) {
                 showStatus(mediaListStatus, errorMessage(error, "Could not remove the media item."), "error");
                 remove.disabled = false;

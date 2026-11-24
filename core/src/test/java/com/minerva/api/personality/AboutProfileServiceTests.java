@@ -1,6 +1,7 @@
 package com.minerva.api.personality;
 
 import com.minerva.api.library.MediaLibraryItem;
+import com.minerva.api.library.MediaLibraryPage;
 import com.minerva.api.library.MediaLibraryStore;
 import com.minerva.api.personality.InterestMemoryStore;
 import com.minerva.core.AiActivityGate;
@@ -27,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Tag("Unit")
@@ -50,9 +52,9 @@ class AboutProfileServiceTests {
         var activity = new HeartbeatMemoryStore(temporaryDirectory.resolve("heartbeat-memories.json"));
         activity.append(Instant.parse("2026-10-01T10:00:00Z"), "SUCCEEDED", 2, "Reviewed a garden article.");
         var media = mock(MediaLibraryStore.class);
-        when(media.list()).thenReturn(List.of(new MediaLibraryItem(
+        when(media.page(10, null)).thenReturn(new MediaLibraryPage(List.of(new MediaLibraryItem(
                 "media-id", "Botanical print", null, "image/png", "print.png",
-                Instant.parse("2026-10-01T09:00:00Z"), "Matches Minerva's visual interests.")));
+                Instant.parse("2026-10-01T09:00:00Z"), "Matches Minerva's visual interests.")), null));
         var store = new CustomizationStore(temporaryDirectory.resolve("customization.json"));
         var service = new AboutProfileService(builder, new AiActivityGate(), store, personality,
                 interests, activity, media);
@@ -65,6 +67,7 @@ class AboutProfileServiceTests {
         assertEquals("Reviewed a garden article.", first.recentActivity().getFirst().outcome());
         assertEquals("Botanical print", first.likedMedia().getFirst().title());
         assertEquals(first.biography(), second.biography());
+        verify(media, org.mockito.Mockito.times(2)).page(10, null);
 
         activity.append(Instant.parse("2026-10-02T10:00:00Z"), "SUCCEEDED", 1, "Saved a new local activity.");
         var refreshed = service.loadPage();
@@ -83,6 +86,7 @@ class AboutProfileServiceTests {
         var interests = new InterestMemoryStore(temporaryDirectory.resolve("memories.md"));
         var activity = new HeartbeatMemoryStore(temporaryDirectory.resolve("heartbeat-memories.json"));
         var media = mock(MediaLibraryStore.class);
+        when(media.page(10, null)).thenReturn(new MediaLibraryPage(List.of(), null));
         AiActivityGate gate = new AiActivityGate();
         var store = new CustomizationStore(temporaryDirectory.resolve("customization.json"));
         store.saveBiography("The previous biography.", "old-source-digest");

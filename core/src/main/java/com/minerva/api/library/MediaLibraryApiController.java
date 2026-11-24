@@ -82,6 +82,20 @@ public class MediaLibraryApiController {
     }
 
     /**
+     * Lists a bounded page of accepted items, newest first.
+     *
+     * @param limit page size from 1 to 100, defaulting to 20
+     * @param cursor next cursor returned by a preceding page
+     * @return item metadata and an optional next cursor
+     * @throws IOException if the library index cannot be reconciled
+     */
+    @GetMapping("/page")
+    public MediaLibraryPage page(@RequestParam(defaultValue = "20") int limit,
+                                 @RequestParam(required = false) String cursor) throws IOException {
+        return service.listPage(limit, cursor);
+    }
+
+    /**
      * Retrieves one item's metadata and extracted text.
      *
      * @param id item UUID

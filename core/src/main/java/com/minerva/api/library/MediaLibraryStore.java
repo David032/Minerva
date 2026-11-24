@@ -5,9 +5,12 @@ import com.google.gson.JsonParseException;
 import com.minerva.utils.Directory;
 import com.minerva.utils.FileManager;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -15,8 +18,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
-import java.util.Comparator;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -28,28 +29,41 @@ import java.util.UUID;
 public class MediaLibraryStore {
     private static final Gson GSON = new Gson();
     private final Path directory;
+    private final MediaLibraryIndex index;
+    private boolean indexDirty = true;
 
     /**
      * Creates a store in the configured Minerva data directory.
      *
      * @param fileManager resolves the persistent library directory
+     * @param index rebuildable metadata projection
      */
     @Autowired
-    public MediaLibraryStore(FileManager fileManager) {
-        this(Path.of(fileManager.getDirectoryPath(Directory.LIBRARY)));
+    public MediaLibraryStore(FileManager fileManager, MediaLibraryIndex index) {
+        this(Path.of(fileManager.getDirectoryPath(Directory.LIBRARY)), index);
     }
 
     /**
      * Creates a store in an explicit directory, primarily for isolated tests.
      *
      * @param directory persistent library directory
+     * @param index rebuildable metadata projection
      */
-    MediaLibraryStore(Path directory) {
+    MediaLibraryStore(Path directory, MediaLibraryIndex index) {
         this.directory = directory;
+        this.index = index;
     }
 
     /**
-     * Atomically persists an accepted item and its metadata.
+     * Reconciles the database projection with the authoritative files at startup.
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public synchronized void initialiseIndex() throws IOException {
+        ensureIndexed();
+    }
+
+    /**
+     * Persists an accepted item and its metadata, then updates the rebuildable index.
      *
      * @param title display title
      * @param source original URL, or {@code null} for a file upload
@@ -71,6 +85,7 @@ public class MediaLibraryStore {
             String reason,
             byte[] content
     ) throws IOException {
+        ensureIndexed();
         String extension = extensionFor(contentType);
         if (content == null || content.length == 0) {
             throw new IllegalArgumentException("The media content is empty.");
@@ -97,6 +112,9 @@ public class MediaLibraryStore {
             moveIntoPlace(temporaryContent, contentPath);
             moveIntoPlace(temporaryMetadata, metadataPath);
             committed = true;
+            indexDirty = true;
+            index.insert(item);
+            indexDirty = false;
             return item;
         } finally {
             Files.deleteIfExists(temporaryContent);
@@ -115,16 +133,21 @@ public class MediaLibraryStore {
      * @throws IOException if saved metadata cannot be read
      */
     public synchronized List<MediaLibraryItem> list() throws IOException {
-        if (Files.notExists(directory)) {
-            return List.of();
-        }
-        List<MediaLibraryItem> items = new ArrayList<>();
-        try (var files = Files.list(directory)) {
-            for (Path path : files.filter(path -> path.getFileName().toString().endsWith(".json")).toList()) {
-                items.add(readEntry(path).item());
-            }
-        }
-        return items.stream().sorted(Comparator.comparing(MediaLibraryItem::storedAt).reversed()).toList();
+        ensureIndexed();
+        return index.list();
+    }
+
+    /**
+     * Returns a bounded page in newest-first order.
+     *
+     * @param limit maximum number of items, from 1 to 100
+     * @param cursor cursor from the preceding page, or {@code null} for the first page
+     * @return the items and next cursor
+     * @throws IOException if the file index cannot be reconciled
+     */
+    public synchronized MediaLibraryPage page(int limit, String cursor) throws IOException {
+        ensureIndexed();
+        return index.page(limit, cursor);
     }
 
     /**
@@ -136,6 +159,7 @@ public class MediaLibraryStore {
      * @throws IOException if the metadata cannot be read
      */
     public synchronized MediaLibraryDetails getDetails(UUID id) throws IOException {
+        ensureIndexed();
         StoredEntry entry = readEntry(metadataPath(id));
         return new MediaLibraryDetails(entry.item(), entry.extractedText());
     }
@@ -149,6 +173,7 @@ public class MediaLibraryStore {
      * @throws IOException if the media bytes cannot be read
      */
     public synchronized byte[] readContent(UUID id) throws IOException {
+        ensureIndexed();
         StoredEntry entry = readEntry(metadataPath(id));
         return Files.readAllBytes(contentPath(id, extensionFor(entry.item().contentType())));
     }
@@ -161,14 +186,74 @@ public class MediaLibraryStore {
      * @throws IOException if metadata or media cannot be removed
      */
     public synchronized boolean delete(UUID id) throws IOException {
+        ensureIndexed();
         Path metadata = metadataPath(id);
         if (Files.notExists(metadata)) {
             return false;
         }
         StoredEntry entry = readEntry(metadata);
+        Path tombstone = directory.resolve(id + ".json.deleting");
+        indexDirty = true;
+        moveIntoPlace(metadata, tombstone);
         Files.delete(contentPath(id, extensionFor(entry.item().contentType())));
-        Files.delete(metadata);
+        Files.delete(tombstone);
+        index.delete(id);
+        indexDirty = false;
         return true;
+    }
+
+    private void ensureIndexed() throws IOException {
+        if (!indexDirty) {
+            return;
+        }
+        if (Files.notExists(directory)) {
+            index.rebuild(List.<MediaLibraryItem>of().iterator());
+            indexDirty = false;
+            return;
+        }
+        recoverDeletes();
+        try (var files = Files.list(directory)) {
+            var items = files.filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .map(path -> {
+                        try {
+                            StoredEntry entry = readEntry(path);
+                            MediaLibraryItem item = entry.item();
+                            if (!Files.isRegularFile(contentPath(UUID.fromString(item.id()),
+                                    extensionFor(item.contentType())))) {
+                                throw new IOException("Media library content is missing: " + path.getFileName());
+                            }
+                            return item;
+                        } catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    });
+            index.rebuild(items.iterator());
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+        indexDirty = false;
+    }
+
+    private void recoverDeletes() throws IOException {
+        try (var files = Files.list(directory)) {
+            for (Path tombstone : files.filter(path -> path.getFileName().toString().endsWith(".json.deleting"))
+                    .toList()) {
+                String name = tombstone.getFileName().toString();
+                Path metadata = directory.resolve(name.substring(0, name.length() - ".deleting".length()));
+                if (Files.exists(metadata)) {
+                    throw new IOException("Conflicting media library deletion files: " + name);
+                }
+                StoredEntry entry = readEntry(tombstone);
+                Path content = contentPath(UUID.fromString(entry.id()), extensionFor(entry.contentType()));
+                if (Files.isRegularFile(content)) {
+                    moveIntoPlace(tombstone, metadata);
+                } else if (Files.notExists(content)) {
+                    Files.delete(tombstone);
+                } else {
+                    throw new IOException("Cannot inspect media library content for " + name);
+                }
+            }
+        }
     }
 
     private StoredEntry readEntry(Path metadataPath) throws IOException {
@@ -182,7 +267,8 @@ public class MediaLibraryStore {
                     || entry.contentType() == null || entry.fileName() == null || entry.storedAt() == null) {
                 throw new IOException("Media library metadata is invalid: " + metadataPath.getFileName());
             }
-            if (!metadataPath.getFileName().toString().equals(entry.id() + ".json")) {
+            String name = metadataPath.getFileName().toString();
+            if (!name.equals(entry.id() + ".json") && !name.equals(entry.id() + ".json.deleting")) {
                 throw new IOException("Media library metadata identifier does not match its filename.");
             }
             try {

@@ -47,6 +47,19 @@ class MediaLibraryApiIntegrationTests {
     }
 
     @Test
+    void exposesBoundedPagesOverHttp() throws Exception {
+        when(service.listPage(20, null)).thenReturn(new MediaLibraryPage(List.of(new MediaLibraryItem(
+                "00000000-0000-0000-0000-000000000001", "Interesting article",
+                "https://example.com/article", "text/plain", "article.txt",
+                Instant.parse("2026-01-01T00:00:00Z"), "Relevant to Minerva.")), "next"));
+
+        mockMvc.perform(get("/api/library/page"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].title").value("Interesting article"))
+                .andExpect(jsonPath("$.nextCursor").value("next"));
+    }
+
+    @Test
     void reportsRejectedCandidatesWithoutCreatingLibraryItems() throws Exception {
         when(service.submitUrl("https://example.com/article"))
                 .thenReturn(new MediaLibraryService.Submission(false, "Not relevant.", null));
