@@ -144,16 +144,16 @@ class MediaPersonalityWorkflowIntegrationTests {
     void editsPromptWhileAnUploadIsPreparingAndRetainsTheEdit() throws Exception {
         var preparing = new java.util.concurrent.CountDownLatch(1);
         var release = new java.util.concurrent.CountDownLatch(1);
-        when(fetcher.fetch(anyList())).thenAnswer(invocation -> {
+        org.mockito.Mockito.doAnswer(invocation -> {
             preparing.countDown();
             if (!release.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
                 throw new java.io.IOException("Timed out waiting for test release.");
             }
             return List.of();
-        });
-        when(analyzer.analyze(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
-                .thenAnswer(invocation -> invocation.<String>getArgument(2) + " Analysed.");
+        }).when(fetcher).fetch(anyList());
+        org.mockito.Mockito.doAnswer(invocation -> invocation.<String>getArgument(2) + " Analysed.")
+                .when(analyzer).analyze(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
         var file = new MockMultipartFile("file", "page.html", "text/html", "<p>Example</p>".getBytes());
         try (var callers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
             var upload = callers.submit(() -> mockMvc.perform(multipart("/personality/upload")
