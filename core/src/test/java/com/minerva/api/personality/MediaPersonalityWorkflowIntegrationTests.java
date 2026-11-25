@@ -30,6 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
@@ -137,6 +138,37 @@ class MediaPersonalityWorkflowIntegrationTests {
                         service, articleFetcher, new CustomizationStore(tempDirectory.resolve("customization.json"))))
                 .setViewResolvers(viewResolver)
                 .build();
+    }
+
+    @Test
+    void editsPromptWhileAnUploadIsPreparingAndRetainsTheEdit() throws Exception {
+        var preparing = new java.util.concurrent.CountDownLatch(1);
+        var release = new java.util.concurrent.CountDownLatch(1);
+        when(fetcher.fetch(anyList())).thenAnswer(invocation -> {
+            preparing.countDown();
+            if (!release.await(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                throw new java.io.IOException("Timed out waiting for test release.");
+            }
+            return List.of();
+        });
+        when(analyzer.analyze(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString()))
+                .thenAnswer(invocation -> invocation.<String>getArgument(2) + " Analysed.");
+        var file = new MockMultipartFile("file", "page.html", "text/html", "<p>Example</p>".getBytes());
+        try (var callers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var upload = callers.submit(() -> mockMvc.perform(multipart("/personality/upload")
+                    .file(file).param("guidance", "")).andExpect(status().isOk()).andReturn());
+            try {
+                assertTrue(preparing.await(5, java.util.concurrent.TimeUnit.SECONDS));
+                callers.submit(() -> mockMvc.perform(post("/personality/prompt")
+                        .param("personalityPrompt", "Edited.")).andExpect(status().isOk()).andReturn())
+                        .get(5, java.util.concurrent.TimeUnit.SECONDS);
+            } finally {
+                release.countDown();
+            }
+            upload.get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertEquals("Edited. Analysed.", promptStore.load());
+        }
     }
 
     @Test

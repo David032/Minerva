@@ -16,6 +16,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,6 +38,92 @@ import static org.mockito.Mockito.when;
 class MediaPersonalityServiceTests {
     @TempDir
     Path tempDirectory;
+
+    @Test
+    void allowsEditsDuringBatchPreparationAndFinalisesTheLatestPrompt() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        var memoryStore = new InterestMemoryStore(tempDirectory.resolve("memories.md"));
+        var fetcher = mock(RemoteMediaFetcher.class);
+        var analyzer = mock(PersonalityAnalyzer.class);
+        var preparingSecond = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        when(fetcher.fetch(anyList())).thenAnswer(invocation -> {
+            if (calls.incrementAndGet() == 2) {
+                preparingSecond.countDown();
+                if (!release.await(5, TimeUnit.SECONDS)) {
+                    throw new IOException("Timed out waiting for test release.");
+                }
+            }
+            return List.of();
+        });
+        when(analyzer.analyze(any(), any(), anyString(), anyString()))
+                .thenAnswer(invocation -> invocation.<String>getArgument(2) + " analysed");
+        when(analyzer.compact(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(analyzer.generateLongTermGoals(anyString(), anyList()))
+                .thenReturn(List.of("Explore art", "Learn more", "Find stories"));
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, memoryStore);
+        var file = new MockMultipartFile("htmlFiles", "page.html", "text/html", "<p>Example</p>".getBytes());
+        try (var callers = Executors.newFixedThreadPool(2)) {
+            var batch = callers.submit(() -> service.processHtmlBatch(List.of(file, file), ""));
+            try {
+                assertTrue(preparingSecond.await(5, TimeUnit.SECONDS));
+                callers.submit(() -> {
+                    service.savePrompt("Edited.");
+                    return null;
+                }).get(5, TimeUnit.SECONDS);
+            } finally {
+                release.countDown();
+            }
+            assertEquals("Edited. analysed", batch.get(5, TimeUnit.SECONDS).personalityPrompt());
+            assertEquals("Edited. analysed", promptStore.load());
+        }
+    }
+
+    @Test
+    void rollsBackFailedAnalysisBeforeApplyingAConcurrentEdit() throws Exception {
+        var promptStore = new PersonalityPromptStore(tempDirectory.resolve("personality.md"));
+        promptStore.save("Original.");
+        var memoryStore = spy(new InterestMemoryStore(tempDirectory.resolve("memories.md")));
+        var saving = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        doAnswer(invocation -> {
+            saving.countDown();
+            if (!release.await(5, TimeUnit.SECONDS)) {
+                throw new IOException("Timed out waiting for test release.");
+            }
+            throw new IOException("Cannot save interests.");
+        }).when(memoryStore).addAll(anyList());
+        var fetcher = mock(RemoteMediaFetcher.class);
+        when(fetcher.fetch(anyList())).thenReturn(List.of());
+        var analyzer = mock(PersonalityAnalyzer.class);
+        when(analyzer.analyze(any(), any(), anyString(), anyString())).thenReturn("Analysis.");
+        when(analyzer.generateLongTermGoals(anyString(), anyList()))
+                .thenReturn(List.of("Explore art", "Learn more", "Find stories"));
+        var service = new MediaPersonalityService(new MediaDocumentExtractor(), fetcher,
+                new MediaPreprocessor(video -> List.of()), analyzer, mock(PersonalityImageOpinionService.class),
+                promptStore, memoryStore);
+        var file = new MockMultipartFile("file", "page.html", "text/html", "<p>Example</p>".getBytes());
+        try (var callers = Executors.newFixedThreadPool(2)) {
+            var processing = callers.submit(() -> service.process(file, ""));
+            try {
+                assertTrue(saving.await(5, TimeUnit.SECONDS));
+                var edit = callers.submit(() -> {
+                    service.savePrompt("Edited.");
+                    return null;
+                });
+                assertThrows(java.util.concurrent.TimeoutException.class, () -> edit.get(200, TimeUnit.MILLISECONDS));
+                release.countDown();
+                assertThrows(java.util.concurrent.ExecutionException.class, () -> processing.get(5, TimeUnit.SECONDS));
+                edit.get(5, TimeUnit.SECONDS);
+            } finally {
+                release.countDown();
+            }
+            assertEquals("Edited.", promptStore.load());
+        }
+    }
 
     @Test
     void processesArticleTextWithTheCommentAsPreferenceGuidance() throws Exception {

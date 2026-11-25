@@ -14,6 +14,8 @@ Open Minerva at `/personality` to upload a PDF, HTML page, or image, or provide 
 
 Personality imports are dispatched immediately after they are saved; if the worker queue rejects a job, Minerva retries queued jobs every 10 seconds by default. Set `MINERVA_PERSONALITY_IMPORT_POLL_INTERVAL` to a positive interval in milliseconds to change that delay. Queued and interrupted imports are recovered on startup. A busy worker, unavailable database, or delayed scheduler can increase the time before an import starts.
 
+Referenced media downloads share a bounded pool of four workers across requests, and results retain their original order. Document extraction and media preparation can overlap with other personality operations; prompt-dependent analysis and updates remain serialised. If several downloads fail, the first observed failure is reported.
+
 Available colour palettes include Gothic, Cyberpunk, Futuristic, Occult, Grimdark and Dark, alongside Forest, Ocean, Rose and Midnight.
 
 The Docker image includes FFmpeg for video frame extraction. When running the application directly on a host, FFmpeg must be available on `PATH` to analyse referenced videos.
@@ -97,7 +99,7 @@ The `ContinuousIntegration` Journiv test uses `JOURNIV_TEST_URL` when supplied a
 
 ## Conversation logging
 
-The logging advisor records the current user message and completed assistant response at INFO level, including heartbeat requests. Logs are written to the console and to `logs` under `MINERVA_DATA_DIR` (or `~/MinervaOS` by default). These logs can contain sensitive conversation text; keep them private. Set `LOGGING_LEVEL_COM_MINERVA_ADVISORS=OFF` to disable the advisor's logs. Media attachments are not logged by the advisor; image requests and responses are also logged separately by the conversation manager.
+The logging advisor records the current user message and completed assistant response at INFO level, including heartbeat requests. For streamed responses it logs at most 10,000 UTF-16 characters followed by `[truncated]` when needed; the stream itself is unchanged. Logs are written to the console and to `logs` under `MINERVA_DATA_DIR` (or `~/MinervaOS` by default). These logs can contain sensitive conversation text; keep them private. Set `LOGGING_LEVEL_COM_MINERVA_ADVISORS=OFF` to disable the advisor's logs. Media attachments are not logged by the advisor; image requests and responses are also logged separately by the conversation manager.
 
 ## Local backup and restore
 
