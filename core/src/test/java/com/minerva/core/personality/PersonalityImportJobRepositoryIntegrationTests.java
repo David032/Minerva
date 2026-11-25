@@ -10,9 +10,11 @@ import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @Import(MinervaTestConfiguration.class)
@@ -23,6 +25,26 @@ class PersonalityImportJobRepositoryIntegrationTests {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Test
+    @Transactional
+    void recoversPersistedInterruptedJobIntoQueuedDispatchQuery() {
+        UUID id = UUID.randomUUID();
+        var job = new PersonalityImportJob(id, PersonalityImportKind.ZIP,
+                "", id.toString(), "[]", Instant.now());
+        job.start(Instant.now());
+        repository.saveAndFlush(job);
+        entityManager.clear();
+
+        var interrupted = repository.findById(id).orElseThrow();
+        assertEquals(PersonalityImportJobStatus.RUNNING, interrupted.getStatus());
+        interrupted.requeue(Instant.now());
+        repository.saveAndFlush(interrupted);
+        entityManager.clear();
+
+        var queued = repository.findAllByStatusInOrderByCreatedAtAsc(List.of(PersonalityImportJobStatus.QUEUED));
+        assertTrue(queued.stream().anyMatch(candidate -> candidate.getId().equals(id)));
+    }
 
     @Test
     @Transactional

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.nio.file.Files;
@@ -81,6 +82,64 @@ class PersonalityImportJobServiceTests {
 
         assertEquals(PersonalityImportJobStatus.QUEUED, job.getStatus());
         assertEquals(1, tasks.size());
+    }
+
+    @Test
+    void retriesRejectedSubmissionAndAvoidsDuplicateDispatch() throws Exception {
+        var repository = mock(PersonalityImportJobRepository.class);
+        var fileManager = mock(FileManager.class);
+        when(fileManager.getDirectoryPath(Directory.UPLOADS)).thenReturn(temporaryDirectory.toString());
+        when(repository.save(any(PersonalityImportJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        List<Runnable> tasks = new java.util.ArrayList<>();
+        int[] attempts = {0};
+        TaskExecutor executor = task -> {
+            if (attempts[0]++ == 0) {
+                throw new TaskRejectedException("Worker is full");
+            }
+            tasks.add(task);
+        };
+        var service = new PersonalityImportJobService(
+                repository, mock(MediaPersonalityService.class), fileManager, executor);
+        var result = service.submit(PersonalityImportKind.IMAGE_BATCH,
+                List.of(new MockMultipartFile("imageFiles", "garden.png", "image/png", new byte[]{1})), "");
+        var captured = org.mockito.ArgumentCaptor.forClass(PersonalityImportJob.class);
+        verify(repository).save(captured.capture());
+        when(repository.findAllByStatusInOrderByCreatedAtAsc(List.of(PersonalityImportJobStatus.QUEUED)))
+                .thenReturn(List.of(captured.getValue()));
+
+        assertEquals(PersonalityImportJobStatus.QUEUED, result.status());
+        assertTrue(tasks.isEmpty());
+        service.dispatchQueuedJobs();
+        service.dispatchQueuedJobs();
+
+        assertEquals(2, attempts[0]);
+        assertEquals(1, tasks.size());
+    }
+
+    @Test
+    void recoversQueuedAndRunningJobsWithoutSchedulingDuplicates() {
+        var repository = mock(PersonalityImportJobRepository.class);
+        List<Runnable> tasks = new java.util.ArrayList<>();
+        var service = new PersonalityImportJobService(
+                repository, mock(MediaPersonalityService.class), mock(FileManager.class), tasks::add);
+        var queued = new PersonalityImportJob(UUID.randomUUID(), PersonalityImportKind.ZIP,
+                "", UUID.randomUUID().toString(), "[]", Instant.now());
+        var running = new PersonalityImportJob(UUID.randomUUID(), PersonalityImportKind.ZIP,
+                "", UUID.randomUUID().toString(), "[]", Instant.now());
+        running.start(Instant.now());
+        when(repository.findAllByStatusInOrderByCreatedAtAsc(
+                List.of(PersonalityImportJobStatus.QUEUED, PersonalityImportJobStatus.RUNNING)))
+                .thenReturn(List.of(queued, running));
+        when(repository.findAllByStatusInOrderByCreatedAtAsc(List.of(PersonalityImportJobStatus.QUEUED)))
+                .thenReturn(List.of(queued, running));
+        when(repository.save(any(PersonalityImportJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.recoverJobs();
+        service.dispatchQueuedJobs();
+
+        assertEquals(PersonalityImportJobStatus.QUEUED, queued.getStatus());
+        assertEquals(PersonalityImportJobStatus.QUEUED, running.getStatus());
+        assertEquals(2, tasks.size());
     }
 
     @Test

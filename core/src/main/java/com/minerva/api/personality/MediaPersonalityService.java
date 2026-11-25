@@ -14,6 +14,7 @@ import java.util.List;
 
 /**
  * Coordinates media extraction, analysis, persistence, and user-managed personality preferences.
+ * Preparation can overlap between requests; prompt-dependent analysis and updates are serialised.
  */
 @Service
 public class MediaPersonalityService {
@@ -66,7 +67,7 @@ public class MediaPersonalityService {
      * @throws IllegalArgumentException if the upload is empty or unsupported
      * @throws IOException if extraction, media retrieval, analysis, or persistence fails
      */
-    public synchronized SubmissionResult process(MultipartFile file, String guidance) throws IOException {
+    public SubmissionResult process(MultipartFile file, String guidance) throws IOException {
         MediaDocumentExtractor.Extraction extraction = extractor.extract(file);
         List<RemoteMediaFetcher.MediaAsset> fetchedMedia = mediaFetcher.fetch(extraction.mediaUrls());
         List<List<RemoteMediaFetcher.MediaAsset>> mediaBatches = mediaPreprocessor.prepareBatches(fetchedMedia);
@@ -98,7 +99,7 @@ public class MediaPersonalityService {
      * @throws IllegalArgumentException if no non-empty files were selected
      * @throws IOException if the latest prompt cannot be loaded after processing
      */
-    public synchronized BatchSubmissionResult processHtmlBatch(List<MultipartFile> files, String guidance)
+    public BatchSubmissionResult processHtmlBatch(List<MultipartFile> files, String guidance)
             throws IOException {
         validateBatchFileCount(files);
         if (files == null || files.stream().noneMatch(file -> file != null && !file.isEmpty())) {
@@ -126,8 +127,7 @@ public class MediaPersonalityService {
                 failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
             }
         }
-        return finishBatch(new BatchSubmissionResult(
-                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load()));
+        return finishBatch(successfulFileCount, savedTagCount, analyzedMediaCount, failures);
     }
 
     /**
@@ -139,7 +139,7 @@ public class MediaPersonalityService {
      * @throws IllegalArgumentException if no non-empty images were selected
      * @throws IOException if the latest prompt cannot be loaded after processing
      */
-    public synchronized BatchSubmissionResult processImageBatch(List<MultipartFile> files, String comment)
+    public BatchSubmissionResult processImageBatch(List<MultipartFile> files, String comment)
             throws IOException {
         validateBatchFileCount(files);
         if (files == null || files.stream().noneMatch(file -> file != null && !file.isEmpty())) {
@@ -164,8 +164,7 @@ public class MediaPersonalityService {
                 failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
             }
         }
-        return finishBatch(new BatchSubmissionResult(
-                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load()));
+        return finishBatch(successfulFileCount, savedTagCount, analyzedMediaCount, failures);
     }
 
     /**
@@ -177,7 +176,7 @@ public class MediaPersonalityService {
      * @throws IOException if the archive or saved prompt cannot be read
      * @throws IllegalArgumentException if the archive is invalid or exceeds its limits
      */
-    public synchronized BatchSubmissionResult processZip(MultipartFile archive, String guidance) throws IOException {
+    public BatchSubmissionResult processZip(MultipartFile archive, String guidance) throws IOException {
         try (var zip = PersonalityZipArchive.open(archive)) {
             return processZipFiles(zip.files(), guidance);
         }
@@ -206,18 +205,22 @@ public class MediaPersonalityService {
                 failures.add(new FileFailure(filename, e.getMessage() == null ? "Processing failed." : e.getMessage()));
             }
         }
-        return finishBatch(new BatchSubmissionResult(
-                successfulFileCount, savedTagCount, analyzedMediaCount, failures, promptStore.load()));
+        return finishBatch(successfulFileCount, savedTagCount, analyzedMediaCount, failures);
     }
 
-    private BatchSubmissionResult finishBatch(BatchSubmissionResult result) throws IOException {
+    private synchronized BatchSubmissionResult finishBatch(
+            int successfulFileCount, int savedTagCount, int analyzedMediaCount, List<FileFailure> failures
+    ) throws IOException {
+        String currentPrompt = promptStore.load();
+        var result = new BatchSubmissionResult(
+                successfulFileCount, savedTagCount, analyzedMediaCount, failures, currentPrompt);
         if (result.successfulFileCount() == 0) {
             return result;
         }
         String compactedPrompt;
         List<String> goals;
         try {
-            compactedPrompt = analyzer.compact(result.personalityPrompt());
+            compactedPrompt = analyzer.compact(currentPrompt);
             goals = analyzer.generateLongTermGoals(compactedPrompt, memoryStore.loadScoredInterests());
         } catch (AiBusyException | IllegalStateException | IOException e) {
             return withFinalisationFailure(result, e);
@@ -265,7 +268,7 @@ public class MediaPersonalityService {
      * @throws IllegalArgumentException if neither or both image sources are supplied, or the image is unsupported
      * @throws IOException if image analysis, media retrieval, or persistence fails
      */
-    public synchronized SubmissionResult processImage(
+    public SubmissionResult processImage(
             MultipartFile imageFile,
             String imageUrl,
             String comment
@@ -292,7 +295,11 @@ public class MediaPersonalityService {
             throw new IllegalArgumentException("The selected URL must point to a supported image.");
         }
         List<RemoteMediaFetcher.MediaAsset> media = mediaPreprocessor.prepare(images);
+        return analyzeImageAndSave(media, comment);
+    }
 
+    private synchronized SubmissionResult analyzeImageAndSave(
+            List<RemoteMediaFetcher.MediaAsset> media, String comment) throws IOException {
         String effectiveComment = comment == null ? "" : comment.trim();
         String imageRequest = effectiveComment.isEmpty() ? DEFAULT_IMAGE_REQUEST : effectiveComment;
         String description;
@@ -320,7 +327,7 @@ public class MediaPersonalityService {
      * @throws IOException if image retrieval or personality analysis fails
      */
     @Tool(description = "Analyze a public image URL and conservatively update Minerva's saved personality preferences")
-    public synchronized SubmissionResult processImageUrl(String imageUrl, String comment) throws IOException {
+    public SubmissionResult processImageUrl(String imageUrl, String comment) throws IOException {
         return processImage(null, imageUrl, comment);
     }
 
@@ -353,7 +360,7 @@ public class MediaPersonalityService {
         throw new IllegalArgumentException("The uploaded file is not a supported JPEG, PNG, GIF, or WebP image.");
     }
 
-    private SubmissionResult analyzeAndSave(
+    private synchronized SubmissionResult analyzeAndSave(
             MediaDocumentExtractor.Extraction extraction,
             List<List<RemoteMediaFetcher.MediaAsset>> mediaBatches,
             String guidance,

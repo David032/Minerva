@@ -25,7 +25,7 @@ public class ReminderScheduler {
     /**
      * Marks all currently due reminders so clients can present them.
      */
-    @Scheduled(fixedDelayString = "${minerva.reminders.poll-interval:1000}")
+    @Scheduled(fixedDelayString = "${minerva.reminders.poll-interval:5000}")
     public void markDueReminders() {
         reminderService.markDueReminders();
     }

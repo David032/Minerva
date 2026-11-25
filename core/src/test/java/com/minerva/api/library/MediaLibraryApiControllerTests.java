@@ -2,6 +2,7 @@ package com.minerva.api.library;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -11,6 +12,17 @@ import static org.mockito.Mockito.when;
 
 @Tag("Unit")
 class MediaLibraryApiControllerTests {
+    @Test
+    void delegatesBoundedListingWithCursor() throws Exception {
+        var service = mock(MediaLibraryService.class);
+        var page = new MediaLibraryPage(List.of(), null);
+        when(service.listPage(12, "cursor")).thenReturn(page);
+        var controller = new MediaLibraryApiController(service);
+
+        assertEquals(page, controller.page(12, "cursor"));
+        verify(service).listPage(12, "cursor");
+    }
+
     @Test
     void returnsCreatedForAcceptedUrlCandidates() throws Exception {
         var service = mock(MediaLibraryService.class);

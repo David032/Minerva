@@ -72,7 +72,7 @@ public class AboutProfileService {
         String personality = personalityPromptStore.load();
         List<InterestMemoryStore.ScoredInterest> interests = interestMemoryStore.loadScoredInterests();
         List<HeartbeatMemoryStore.HeartbeatEntry> activity = heartbeatMemoryStore.loadRecent(RECENT_ENTRY_LIMIT);
-        List<MediaLibraryItem> media = mediaLibraryStore.list().stream().limit(RECENT_ENTRY_LIMIT).toList();
+        List<MediaLibraryItem> media = mediaLibraryStore.page(RECENT_ENTRY_LIMIT, null).items();
         String digest = sourceDigest(personality, interests, activity, media);
         Preferences preferences = customizationStore.load();
         boolean hasSources = !personality.isBlank() || !interests.isEmpty() || !activity.isEmpty() || !media.isEmpty();

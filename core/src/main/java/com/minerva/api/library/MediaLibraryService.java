@@ -167,6 +167,18 @@ public class MediaLibraryService {
     }
 
     /**
+     * Lists accepted items in bounded newest-first pages.
+     *
+     * @param limit page size, from 1 to 100
+     * @param cursor previous page cursor, or {@code null} for the first page
+     * @return the requested page
+     * @throws IOException if the library index cannot be reconciled
+     */
+    public MediaLibraryPage listPage(int limit, String cursor) throws IOException {
+        return store.page(limit, cursor);
+    }
+
+    /**
      * Retrieves an accepted item and its extracted text.
      *
      * @param id item UUID string

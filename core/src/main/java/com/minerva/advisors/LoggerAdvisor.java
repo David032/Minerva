@@ -13,10 +13,12 @@ import reactor.core.publisher.Flux;
 /**
  * Logs the current user message and the assistant's completed response.
  * Message text can contain sensitive information and is written to the application log.
+ * Streamed responses are logged with a bounded prefix without changing the emitted stream.
  */
 public class LoggerAdvisor implements CallAdvisor, StreamAdvisor {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggerAdvisor.class);
+    static final int MAX_STREAM_LOG_CHARS = 10_000;
 
     @Override
     public String getName() {
@@ -47,14 +49,23 @@ public class LoggerAdvisor implements CallAdvisor, StreamAdvisor {
         return Flux.defer(() -> {
             logRequest(chatClientRequest);
             StringBuilder response = new StringBuilder();
+            boolean[] truncated = {false};
             return chatClientResponses
                     .doOnNext(chunk -> {
                         String text = responseText(chunk);
                         if (text != null) {
-                            response.append(text);
+                            int remaining = MAX_STREAM_LOG_CHARS - response.length();
+                            response.append(text, 0, Math.min(remaining, text.length()));
+                            truncated[0] |= text.length() > remaining;
                         }
                     })
-                    .doOnComplete(() -> logger.info("Assistant response: {}", response));
+                    .doOnComplete(() -> {
+                        if (truncated[0] && !response.isEmpty()
+                                && Character.isHighSurrogate(response.charAt(response.length() - 1))) {
+                            response.setLength(response.length() - 1);
+                        }
+                        logger.info("Assistant response: {}{}", response, truncated[0] ? " [truncated]" : "");
+                    });
         });
     }
 

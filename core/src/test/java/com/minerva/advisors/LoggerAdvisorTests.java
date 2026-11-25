@@ -93,6 +93,61 @@ class LoggerAdvisorTests {
     }
 
     @Test
+    void truncatesAcrossChunksWithoutChangingStream() {
+        var request = new ChatClientRequest(new Prompt("hello"), Map.of());
+        var first = response("a".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS - 1));
+        var second = response("bcdef");
+        var chain = mock(StreamAdvisorChain.class);
+        when(chain.nextStream(request)).thenReturn(Flux.just(first, second));
+
+        assertEquals(List.of(first, second), advisor.adviseStream(request, chain).collectList().block());
+        assertEquals("Assistant response: " + "a".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS - 1)
+                + "b [truncated]", messages().getLast());
+    }
+
+    @Test
+    void logsExactLimitWithoutTruncationAndTruncatesOneOversizedChunk() {
+        var request = new ChatClientRequest(new Prompt("hello"), Map.of());
+        var chain = mock(StreamAdvisorChain.class);
+        when(chain.nextStream(request)).thenReturn(Flux.just(response("a".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS))),
+                Flux.just(response("b".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS + 1))));
+
+        advisor.adviseStream(request, chain).blockLast();
+        advisor.adviseStream(request, chain).blockLast();
+
+        assertEquals("Assistant response: " + "a".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS), messages().get(1));
+        assertEquals("Assistant response: " + "b".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS) + " [truncated]",
+                messages().getLast());
+    }
+
+    @Test
+    void doesNotLogHalfOfASurrogatePairAtTheTruncationBoundary() {
+        var request = new ChatClientRequest(new Prompt("hello"), Map.of());
+        var chain = mock(StreamAdvisorChain.class);
+        when(chain.nextStream(request)).thenReturn(Flux.just(
+                response("a".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS - 1) + "\uD83D"),
+                response("\uDE00")));
+
+        advisor.adviseStream(request, chain).blockLast();
+
+        assertEquals("Assistant response: " + "a".repeat(LoggerAdvisor.MAX_STREAM_LOG_CHARS - 1)
+                + " [truncated]", messages().getLast());
+    }
+
+    @Test
+    void streamStateIsIndependentForEachSubscriptionAndCancellationDoesNotLogCompletion() {
+        var request = new ChatClientRequest(new Prompt("hello"), Map.of());
+        var chain = mock(StreamAdvisorChain.class);
+        when(chain.nextStream(request)).thenReturn(Flux.just(response("one"), response("two")));
+        var stream = advisor.adviseStream(request, chain);
+        stream.take(1).blockLast();
+        stream.collectList().block();
+        stream.collectList().block();
+        assertEquals(List.of("User message: hello", "User message: hello", "Assistant response: onetwo",
+                "User message: hello", "Assistant response: onetwo"), messages());
+    }
+
+    @Test
     void handlesAResponseWithoutGenerations() {
         var request = new ChatClientRequest(new Prompt("hello"), Map.of());
         var response = new ChatClientResponse(new ChatResponse(List.of()), Map.of());
