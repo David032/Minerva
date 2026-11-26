@@ -2,6 +2,15 @@ name: Maven Build & Test
 
 on:
   workflow_dispatch:
+    inputs:
+      runner:
+        description: Runner architecture
+        required: true
+        default: ubuntu-26.04-arm
+        type: choice
+        options:
+          - ubuntu-latest
+          - ubuntu-26.04-arm
   pull_request:
     branches:
       - master
@@ -14,7 +23,7 @@ defaults:
 
 jobs:
   build-and-test:
-    runs-on: ${{ github.event_name == 'pull_request' && github.base_ref == 'dev' && 'ubuntu-latest' || 'ubuntu-26.04-arm' }}
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner || github.event_name == 'pull_request' && github.base_ref == 'dev' && 'ubuntu-latest' || 'ubuntu-26.04-arm' }}
     permissions:
       contents: read
       packages: write
