@@ -30,9 +30,9 @@ services:
       JOURNIV_PASSWORD: ""
       TERMINAL_INPUT: False
       IS_PI_5: False
-      IO_KEY: ${IO_KEY:?Set IO_KEY in .env}
-      IO_USERNAME: ${IO_KEY:?Set IO_USERNAME in .env}
-      BRAVE_API_KEY: ${BRAVE_API_KEY:? Set BRAVE_API_KEY in .env}
+      IO_KEY: ${IO_KEY:-}
+      IO_USERNAME: ${IO_USERNAME:-}
+      BRAVE_API_KEY: ${BRAVE_API_KEY:-}
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
       MINERVA_TOOL_SEARCH_ENABLED: True
     volumes:
@@ -77,10 +77,8 @@ services:
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       PGDATA: /var/lib/postgresql/data/pgdata
-    secrets:
-      - db-password
     volumes:
       - db-data:/var/lib/postgresql/data
     networks:
@@ -117,10 +115,6 @@ volumes:
   voice-tmp:
   ollama-data:
   core-data:
-
-secrets:
-  db-password:
-    file: ./db/password.txt
 
 networks:
   minerva-network:

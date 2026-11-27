@@ -39,7 +39,7 @@ public class AdafruitIoTools {
     boolean hasIoKey(){
         String ioKeyProp = System.getenv("IO_KEY");
         String ioUsernameProp = System.getenv("IO_USERNAME");
-        if ((ioKeyProp != null) && (ioUsernameProp != null)){
+        if (hasCredentials(ioKeyProp, ioUsernameProp)) {
             if (!Objects.equals(ioKey, ioKeyProp)) {
                 ioKey = ioKeyProp;
             }
@@ -49,6 +49,18 @@ public class AdafruitIoTools {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Checks whether both Adafruit IO credentials contain non-blank values.
+     *
+     * @param ioKeyProp the configured Adafruit IO key
+     * @param ioUsernameProp the configured Adafruit IO username
+     * @return true when both credentials are non-blank
+     */
+    static boolean hasCredentials(String ioKeyProp, String ioUsernameProp) {
+        return ioKeyProp != null && !ioKeyProp.isBlank()
+                && ioUsernameProp != null && !ioUsernameProp.isBlank();
     }
 
     /// <summary>
