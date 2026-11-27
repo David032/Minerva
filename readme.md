@@ -1,6 +1,13 @@
 # Minerva
 
-Minerva is an experimental, local AI assistant designed with the Raspberry Pi 5 in mind. It favours thoughtful responses over speed and combines a Java application, local AI services, tools and Markdown skills.
+Minerva is an experimental, local AI assistant designed for the Raspberry Pi 5. It favours thoughtful responses over speed and combines a core Java application, local AI services and a few other bells and whistles.
+
+## Highlights
+* Configurable intrests & knowledge. Minerva can be provided with media, links or items that it'll use to work out what it's intrested in & how it feels about things
+* Personality customisation. Minerva's appearence, personality & speaking style change based on it's intrests.
+* Generates it's own 'About' page based on it's intrests & activity
+* Independent activity. Minerva will occasionally go off and do something of it's own accord. It can: look at things it finds interesting, catch-up on news or other feeds, research more about a new interest, try to understand it's user(i.e. you) better, or just browse the web for a bit
+
 
 ## Quickstart
 
