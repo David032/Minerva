@@ -182,8 +182,8 @@ public class ConversationManager {
             activeTools = Arrays.copyOf(activeTools, activeTools.length + 1);
             activeTools[activeTools.length - 1] = journivTools;
         }
-        if (System.getenv("BRAVE_API_KEY") != null) {
-            String braveApiKey = System.getenv("BRAVE_API_KEY");
+        String braveApiKey = System.getenv("BRAVE_API_KEY");
+        if (braveApiKey != null && !braveApiKey.isBlank()) {
             int currentToolCount = activeTools.length;
             activeTools = Arrays.copyOf(activeTools, currentToolCount + 2);
             activeTools[currentToolCount] =

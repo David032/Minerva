@@ -1,0 +1,12 @@
+title: Minerva
+description: A local AI assistant designed with the Raspberry Pi 5 in mind.
+url: https://david032.github.io
+baseurl: /Minerva
+theme: minima
+permalink: pretty
+header_pages:
+  - architecture.md
+  - development.md
+  - features.md
+  - technology-stack.md
+  - reference.md

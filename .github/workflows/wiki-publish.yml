@@ -1,0 +1,61 @@
+name: Mirror documentation to Wiki
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - docs/**
+      - .github/workflows/wiki-publish.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Publish documentation pages
+        env:
+          WIKI_DEPLOY_TOKEN: ${{ secrets.WIKI_DEPLOY_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$WIKI_DEPLOY_TOKEN" ]]; then
+            echo "::error::Set the WIKI_DEPLOY_TOKEN Actions secret with write access to the repository Wiki."
+            exit 1
+          fi
+
+          wiki="$RUNNER_TEMP/wiki"
+          git clone "https://x-access-token:${WIKI_DEPLOY_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" "$wiki"
+
+          find "$wiki" -maxdepth 1 -type f -name '*.md' -delete
+          for source in docs/*.md; do
+            page="$(basename "$source")"
+            if [[ "$page" == "index.md" ]]; then
+              page="Home.md"
+            fi
+            awk 'NR == 1 && $0 == "---" { frontmatter = 1; next }
+                 frontmatter && $0 == "---" { frontmatter = 0; next }
+                 !frontmatter { print }' "$source" > "$wiki/$page"
+          done
+
+          printf '%s\n' \
+            '[Home](Home)' \
+            '[Architecture](architecture)' \
+            '[Development](development)' \
+            '[Features](features)' \
+            '[Technology stack](technology-stack)' \
+            '[Additional reference](reference)' > "$wiki/_Sidebar.md"
+
+          git -C "$wiki" config user.name "github-actions[bot]"
+          git -C "$wiki" config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C "$wiki" add -A
+          if git -C "$wiki" diff --cached --quiet; then
+            echo "Wiki is already up to date."
+          else
+            git -C "$wiki" commit -m "Sync documentation from ${GITHUB_SHA}"
+            git -C "$wiki" push
+          fi

@@ -10,6 +10,8 @@ import org.springframework.web.client.RestClient;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.http.HttpMethod.GET;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
@@ -39,6 +41,14 @@ class AdafruitIoToolsTests {
         tool.enabled = false;
 
         assertEquals("Failed! IO key & username not found", tool.getLatestValueFromFeed("temperature"));
+    }
+
+    @Test
+    void credentialsMustBothBeNonBlank() {
+        assertFalse(AdafruitIoTools.hasCredentials(null, USERNAME));
+        assertFalse(AdafruitIoTools.hasCredentials(API_KEY, ""));
+        assertFalse(AdafruitIoTools.hasCredentials(" ", USERNAME));
+        assertTrue(AdafruitIoTools.hasCredentials(API_KEY, USERNAME));
     }
 
     @Test
